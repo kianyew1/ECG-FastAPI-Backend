@@ -1,0 +1,20 @@
+# Core dependencies
+numpy>=1.24.0
+pandas>=2.0.0
+scipy>=1.10.0
+
+# ECG processing
+neurokit2>=0.2.0
+matplotlib>=3.7.0
+
+# API framework
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+python-multipart>=0.0.6
+
+# Development
+pytest>=7.4.0
+pytest-cov>=4.1.0
+httpx>=0.25.0
