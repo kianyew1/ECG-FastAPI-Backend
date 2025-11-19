@@ -16,12 +16,19 @@ class Settings(BaseSettings):
     api_port: int = 8000
     debug: bool = False
     
-    # CORS Configuration
+    # CORS Configuration - includes Railway wildcard for production
     cors_origins: List[str] = [
         "http://localhost:3000",
         "http://localhost:3001",
         "http://127.0.0.1:3000",
+        "https://*.up.railway.app",
     ]
+    
+    @property
+    def port(self) -> int:
+        """Get port from PORT env variable (Railway) or api_port."""
+        import os
+        return int(os.environ.get("PORT", self.api_port))
     
     # File Processing
     max_upload_size_mb: int = 50

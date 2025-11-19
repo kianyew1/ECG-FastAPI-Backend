@@ -8,6 +8,7 @@ from typing import Optional
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 import logging
 
 from .config import settings
@@ -44,7 +45,7 @@ app.add_middleware(
 os.makedirs(settings.temp_dir, exist_ok=True)
 
 
-@app.get("/", response_model=HealthResponse)
+@app.get("/api", response_model=HealthResponse)
 async def root():
     """Root endpoint with service information."""
     return HealthResponse(
@@ -53,7 +54,7 @@ async def root():
     )
 
 
-@app.get("/health", response_model=HealthResponse)
+@app.get("/api/health", response_model=HealthResponse)
 async def health_check():
     """Health check endpoint for monitoring."""
     return HealthResponse(
@@ -62,7 +63,7 @@ async def health_check():
     )
 
 
-@app.post("/analyze", response_model=ECGAnalysisResponse)
+@app.post("/api/analyze", response_model=ECGAnalysisResponse)
 async def analyze_ecg(
     file: UploadFile = File(..., description="ADS1298 ECG data file (.txt)"),
     duration: Optional[float] = Form(None, description="Duration to process (seconds)"),
@@ -177,11 +178,20 @@ async def global_exception_handler(request, exc):
     )
 
 
+# Mount static files (frontend) - must be last to catch all remaining routes
+frontend_path = Path(__file__).parent.parent / "frontend"
+if frontend_path.exists():
+    app.mount("/", StaticFiles(directory=str(frontend_path), html=True), name="frontend")
+    logger.info(f"Serving frontend from {frontend_path}")
+else:
+    logger.warning(f"Frontend directory not found at {frontend_path}")
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
         "app.main:app",
         host=settings.api_host,
-        port=settings.api_port,
+        port=settings.port,  # Use port property that checks PORT env variable
         reload=settings.debug
     )

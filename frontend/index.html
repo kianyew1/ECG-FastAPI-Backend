@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ECG Analysis Service</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>🫀 ECG Analysis Service</h1>
+        <p class="subtitle">
+          Upload ADS1298 ECG data files for heart rate analysis
+        </p>
+      </header>
+
+      <main>
+        <!-- Upload Form -->
+        <section class="upload-section">
+          <form id="uploadForm" enctype="multipart/form-data">
+            <div class="form-group">
+              <label for="fileInput" class="file-label">
+                <span class="file-icon">📁</span>
+                <span id="fileName">Choose ECG file (.txt)</span>
+              </label>
+              <input
+                type="file"
+                id="fileInput"
+                name="file"
+                accept=".txt"
+                required
+              />
+            </div>
+
+            <div class="options-grid">
+              <div class="form-group">
+                <label for="duration">Duration (seconds)</label>
+                <input
+                  type="number"
+                  id="duration"
+                  name="duration"
+                  min="1"
+                  max="300"
+                  placeholder="Optional - analyze full file"
+                />
+              </div>
+
+              <div class="form-group">
+                <label for="channels">Channels</label>
+                <input
+                  type="text"
+                  id="channels"
+                  name="channels"
+                  placeholder="CH2,CH3,CH4"
+                  value="CH2,CH3,CH4"
+                />
+              </div>
+
+              <div class="form-group">
+                <label for="samplingRate">Sampling Rate (Hz)</label>
+                <input
+                  type="number"
+                  id="samplingRate"
+                  name="sampling_rate"
+                  value="500"
+                  min="100"
+                  max="2000"
+                />
+              </div>
+
+              <div class="form-group checkbox-group">
+                <label>
+                  <input
+                    type="checkbox"
+                    id="includeSignals"
+                    name="include_signals"
+                  />
+                  <span>Include signal data & charts</span>
+                </label>
+              </div>
+            </div>
+
+            <button type="submit" id="submitBtn" class="btn-primary">
+              <span id="btnText">Analyze ECG</span>
+              <span
+                id="btnSpinner"
+                class="spinner"
+                style="display: none"
+              ></span>
+            </button>
+          </form>
+
+          <div
+            id="errorMessage"
+            class="error-message"
+            style="display: none"
+          ></div>
+        </section>
+
+        <!-- Results Section -->
+        <section
+          id="resultsSection"
+          class="results-section"
+          style="display: none"
+        >
+          <h2>Analysis Results</h2>
+
+          <!-- Metadata Card -->
+          <div class="card">
+            <h3>📋 Recording Metadata</h3>
+            <div class="metadata-grid">
+              <div class="metadata-item">
+                <span class="label">Record Number:</span>
+                <span id="recordNumber" class="value">-</span>
+              </div>
+              <div class="metadata-item">
+                <span class="label">Date/Time:</span>
+                <span id="datetime" class="value">-</span>
+              </div>
+              <div class="metadata-item">
+                <span class="label">Duration:</span>
+                <span id="duration-value" class="value">-</span>
+              </div>
+              <div class="metadata-item">
+                <span class="label">Sample Count:</span>
+                <span id="sampleCount" class="value">-</span>
+              </div>
+              <div class="metadata-item">
+                <span class="label">Processed Channel:</span>
+                <span id="processedChannel" class="value">-</span>
+              </div>
+              <div class="metadata-item">
+                <span class="label">Available Channels:</span>
+                <span id="availableChannels" class="value">-</span>
+              </div>
+              <div class="metadata-item full-width">
+                <span class="label">Notes:</span>
+                <span id="notes" class="value">-</span>
+              </div>
+              <div class="metadata-item">
+                <span class="label">Gain:</span>
+                <span id="gain" class="value">-</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Statistics Card -->
+          <div class="card statistics-card">
+            <h3>📊 Heart Rate Statistics</h3>
+            <div class="stats-grid">
+              <div class="stat-box">
+                <div class="stat-label">Mean HR</div>
+                <div id="hrMean" class="stat-value">-</div>
+                <div class="stat-unit">bpm</div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-label">Std Deviation</div>
+                <div id="hrStd" class="stat-value">-</div>
+                <div class="stat-unit">bpm</div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-label">Min HR</div>
+                <div id="hrMin" class="stat-value">-</div>
+                <div class="stat-unit">bpm</div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-label">Max HR</div>
+                <div id="hrMax" class="stat-value">-</div>
+                <div class="stat-unit">bpm</div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-label">R-Peaks Detected</div>
+                <div id="rPeaks" class="stat-value">-</div>
+                <div class="stat-unit">peaks</div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-label">Sampling Rate</div>
+                <div id="samplingRateResult" class="stat-value">-</div>
+                <div class="stat-unit">Hz</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Charts Section (shown when include_signals is checked) -->
+          <div id="chartsSection" style="display: none">
+            <div class="card">
+              <h3>📈 ECG Signal Visualization</h3>
+              <canvas id="rawSignalChart"></canvas>
+            </div>
+
+            <div class="card">
+              <h3>🔍 Cleaned ECG Signal</h3>
+              <canvas id="cleanedSignalChart"></canvas>
+            </div>
+
+            <div class="card">
+              <h3>💓 Heart Rate Over Time</h3>
+              <canvas id="heartRateChart"></canvas>
+            </div>
+
+            <div class="card">
+              <h3>🎯 R-Peaks Detection</h3>
+              <canvas id="rPeaksChart"></canvas>
+            </div>
+          </div>
+
+          <button id="newAnalysisBtn" class="btn-secondary">
+            ← Analyze Another File
+          </button>
+        </section>
+      </main>
+
+      <footer>
+        <p>ECG Processing Service v1.0.0 | Powered by NeuroKit2 & FastAPI</p>
+      </footer>
+    </div>
+
+    <!-- Chart.js from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>
