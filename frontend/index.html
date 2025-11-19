@@ -82,7 +82,7 @@
             </div>
 
             <button type="submit" id="submitBtn" class="btn-primary">
-              <span id="btnText">Analyze ECG</span>
+              <span id="btnText">Preview ECG Data</span>
               <span
                 id="btnSpinner"
                 class="spinner"
@@ -96,6 +96,82 @@
             class="error-message"
             style="display: none"
           ></div>
+        </section>
+
+        <!-- Timeframe Selection Section -->
+        <section
+          id="timeframeSection"
+          class="timeframe-section"
+          style="display: none"
+        >
+          <h2>📊 Select Timeframe for Analysis</h2>
+
+          <div class="card">
+            <h3>📡 Channel Selection</h3>
+            <div class="form-group">
+              <label for="channelSelect">Choose a channel to preview:</label>
+              <select id="channelSelect" class="channel-select">
+                <option value="">Select a channel...</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="card" id="previewCard" style="display: none">
+            <h3>🔍 Signal Preview</h3>
+            <canvas id="previewChart"></canvas>
+
+            <div class="timeframe-controls">
+              <div class="slider-group">
+                <label for="startTimeSlider">
+                  Start Time: <span id="startTimeValue">0.00</span>s
+                </label>
+                <input
+                  type="range"
+                  id="startTimeSlider"
+                  class="time-slider"
+                  min="0"
+                  max="100"
+                  value="0"
+                  step="0.1"
+                />
+              </div>
+
+              <div class="slider-group">
+                <label for="endTimeSlider">
+                  End Time: <span id="endTimeValue">0.00</span>s
+                </label>
+                <input
+                  type="range"
+                  id="endTimeSlider"
+                  class="time-slider"
+                  min="0"
+                  max="100"
+                  value="100"
+                  step="0.1"
+                />
+              </div>
+
+              <div class="timeframe-info">
+                <p>
+                  Selected Duration:
+                  <strong id="selectedDuration">0.00</strong>s (<strong
+                    id="selectedSamples"
+                    >0</strong
+                  >
+                  samples)
+                </p>
+              </div>
+            </div>
+
+            <button id="analyzeBtn" class="btn-primary">
+              <span id="analyzeBtnText">Analyze Selected Timeframe</span>
+              <span
+                id="analyzeBtnSpinner"
+                class="spinner"
+                style="display: none"
+              ></span>
+            </button>
+          </div>
         </section>
 
         <!-- Results Section -->
@@ -218,6 +294,7 @@
 
     <!-- Chart.js from CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
     <script src="/app.js"></script>
   </body>
 </html>

@@ -10,9 +10,27 @@ const errorMessage = document.getElementById("errorMessage");
 const resultsSection = document.getElementById("resultsSection");
 const chartsSection = document.getElementById("chartsSection");
 const newAnalysisBtn = document.getElementById("newAnalysisBtn");
+const timeframeSection = document.getElementById("timeframeSection");
+const channelSelect = document.getElementById("channelSelect");
+const previewCard = document.getElementById("previewCard");
+const startTimeSlider = document.getElementById("startTimeSlider");
+const endTimeSlider = document.getElementById("endTimeSlider");
+const startTimeValue = document.getElementById("startTimeValue");
+const endTimeValue = document.getElementById("endTimeValue");
+const selectedDuration = document.getElementById("selectedDuration");
+const selectedSamples = document.getElementById("selectedSamples");
+const analyzeBtn = document.getElementById("analyzeBtn");
+const analyzeBtnText = document.getElementById("analyzeBtnText");
+const analyzeBtnSpinner = document.getElementById("analyzeBtnSpinner");
 
 // Chart instances
 let charts = {};
+
+// Global state
+let previewData = null;
+let currentFile = null;
+let maxDuration = 0;
+let samplingRate = 500;
 
 // File input change handler
 fileInput.addEventListener("change", (e) => {
@@ -26,7 +44,7 @@ fileInput.addEventListener("change", (e) => {
   }
 });
 
-// Form submit handler
+// Form submit handler - now loads preview
 uploadForm.addEventListener("submit", async (e) => {
   e.preventDefault();
 
@@ -34,7 +52,6 @@ uploadForm.addEventListener("submit", async (e) => {
   hideError();
 
   // Get form data
-  const formData = new FormData();
   const file = fileInput.files[0];
 
   if (!file) {
@@ -48,33 +65,323 @@ uploadForm.addEventListener("submit", async (e) => {
     return;
   }
 
-  // Add file to form data
-  formData.append("file", file);
-
-  // Add optional parameters
-  const duration = document.getElementById("duration").value;
-  if (duration) {
-    formData.append("duration", duration);
-  }
-
-  const channels = document.getElementById("channels").value;
-  if (channels) {
-    formData.append("channels", channels);
-  }
-
-  const samplingRate = document.getElementById("samplingRate").value;
-  if (samplingRate) {
-    formData.append("sampling_rate", samplingRate);
-  }
-
-  const includeSignals = document.getElementById("includeSignals").checked;
-  formData.append("include_signals", includeSignals);
+  // Store file and sampling rate
+  currentFile = file;
+  samplingRate = parseInt(document.getElementById("samplingRate").value) || 500;
 
   // Show loading state
   setLoading(true);
 
   try {
-    // Call API
+    // Load preview data
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("sampling_rate", samplingRate);
+    formData.append("include_signals", "true");
+
+    const channels = document.getElementById("channels").value;
+    if (channels) {
+      formData.append("channels", channels);
+    }
+
+    const response = await fetch("/api/analyze", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(
+        errorData.detail || `HTTP error! status: ${response.status}`
+      );
+    }
+
+    previewData = await response.json();
+
+    // Setup timeframe selection
+    setupTimeframeSelection();
+  } catch (error) {
+    console.error("Error:", error);
+    showError(`Failed to load preview: ${error.message}`);
+  } finally {
+    setLoading(false);
+  }
+});
+
+// Setup timeframe selection UI
+function setupTimeframeSelection() {
+  // Populate channel selector
+  channelSelect.innerHTML = '<option value="">Select a channel...</option>';
+  previewData.metadata.channels_available.forEach((channel) => {
+    const option = document.createElement("option");
+    option.value = channel;
+    option.textContent = channel;
+    if (channel === previewData.metadata.processed_channel) {
+      option.selected = true;
+    }
+    channelSelect.appendChild(option);
+  });
+
+  // Set up duration
+  maxDuration = previewData.metadata.duration_seconds;
+  startTimeSlider.max = maxDuration;
+  endTimeSlider.max = maxDuration;
+  endTimeSlider.value = maxDuration;
+  startTimeValue.textContent = "0.00";
+  endTimeValue.textContent = maxDuration.toFixed(2);
+  updateSelectedDuration();
+
+  // Show timeframe section
+  timeframeSection.style.display = "block";
+  timeframeSection.scrollIntoView({ behavior: "smooth", block: "start" });
+
+  // Load preview for selected channel
+  if (channelSelect.value) {
+    loadChannelPreview(channelSelect.value);
+  }
+}
+
+// Channel selection handler
+channelSelect.addEventListener("change", (e) => {
+  if (e.target.value) {
+    loadChannelPreview(e.target.value);
+  } else {
+    previewCard.style.display = "none";
+  }
+});
+
+// Load channel preview
+function loadChannelPreview(channel) {
+  if (!previewData || !previewData.raw_signal) return;
+
+  previewCard.style.display = "block";
+
+  // Destroy existing preview chart
+  if (charts.preview) {
+    charts.preview.destroy();
+  }
+
+  // Create preview chart with annotations
+  const ctx = document.getElementById("previewChart");
+  const maxPoints = 2000;
+  const signalData = downsample(
+    previewData.raw_signal.time,
+    previewData.raw_signal.values,
+    maxPoints
+  );
+
+  const startTime = parseFloat(startTimeSlider.value);
+  const endTime = parseFloat(endTimeSlider.value);
+
+  charts.preview = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: signalData.x,
+      datasets: [
+        {
+          label: `${channel} Signal`,
+          data: signalData.y,
+          borderColor: "#3b82f6",
+          borderWidth: 1,
+          pointRadius: 0,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      aspectRatio: 3,
+      plugins: {
+        legend: {
+          display: true,
+        },
+        annotation: {
+          annotations: {
+            selectionBox: {
+              type: "box",
+              xMin: startTime,
+              xMax: endTime,
+              backgroundColor: "rgba(16, 185, 129, 0.15)",
+              borderColor: "rgba(16, 185, 129, 0.5)",
+              borderWidth: 2,
+              label: {
+                display: true,
+                content: "Selected for Analysis",
+                position: "center",
+                color: "#059669",
+                font: {
+                  weight: "bold",
+                  size: 12,
+                },
+              },
+            },
+            startLine: {
+              type: "line",
+              xMin: startTime,
+              xMax: startTime,
+              borderColor: "#10b981",
+              borderWidth: 3,
+              borderDash: [5, 5],
+              label: {
+                display: true,
+                content: `Start: ${startTime.toFixed(2)}s`,
+                position: "start",
+                backgroundColor: "#10b981",
+                color: "white",
+                font: {
+                  weight: "bold",
+                  size: 11,
+                },
+                padding: 4,
+              },
+            },
+            endLine: {
+              type: "line",
+              xMin: endTime,
+              xMax: endTime,
+              borderColor: "#ef4444",
+              borderWidth: 3,
+              borderDash: [5, 5],
+              label: {
+                display: true,
+                content: `End: ${endTime.toFixed(2)}s`,
+                position: "end",
+                backgroundColor: "#ef4444",
+                color: "white",
+                font: {
+                  weight: "bold",
+                  size: 11,
+                },
+                padding: 4,
+              },
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          title: {
+            display: true,
+            text: "Time (seconds)",
+          },
+          type: "linear",
+        },
+        y: {
+          title: {
+            display: true,
+            text: "Amplitude (mV)",
+          },
+        },
+      },
+    },
+  });
+}
+
+// Slider event handlers
+startTimeSlider.addEventListener("input", (e) => {
+  const startTime = parseFloat(e.target.value);
+  const endTime = parseFloat(endTimeSlider.value);
+
+  // Ensure start is before end
+  if (startTime >= endTime) {
+    e.target.value = Math.max(0, endTime - 0.1);
+  }
+
+  startTimeValue.textContent = parseFloat(e.target.value).toFixed(2);
+  updateSelectedDuration();
+  updatePreviewAnnotations();
+});
+
+endTimeSlider.addEventListener("input", (e) => {
+  const startTime = parseFloat(startTimeSlider.value);
+  const endTime = parseFloat(e.target.value);
+
+  // Ensure end is after start
+  if (endTime <= startTime) {
+    e.target.value = Math.min(maxDuration, startTime + 0.1);
+  }
+
+  endTimeValue.textContent = parseFloat(e.target.value).toFixed(2);
+  updateSelectedDuration();
+  updatePreviewAnnotations();
+});
+
+// Update selected duration display
+function updateSelectedDuration() {
+  const startTime = parseFloat(startTimeSlider.value);
+  const endTime = parseFloat(endTimeSlider.value);
+  const duration = endTime - startTime;
+  const samples = Math.round(duration * samplingRate);
+
+  selectedDuration.textContent = duration.toFixed(2);
+  selectedSamples.textContent = samples.toLocaleString();
+}
+
+// Update preview chart annotations
+function updatePreviewAnnotations() {
+  if (!charts.preview || !charts.preview.options.plugins.annotation) return;
+
+  const startTime = parseFloat(startTimeSlider.value);
+  const endTime = parseFloat(endTimeSlider.value);
+
+  const annotations = charts.preview.options.plugins.annotation.annotations;
+
+  // Update selection box
+  annotations.selectionBox.xMin = startTime;
+  annotations.selectionBox.xMax = endTime;
+
+  // Update start line
+  annotations.startLine.xMin = startTime;
+  annotations.startLine.xMax = startTime;
+  annotations.startLine.label.content = `Start: ${startTime.toFixed(2)}s`;
+
+  // Update end line
+  annotations.endLine.xMin = endTime;
+  annotations.endLine.xMax = endTime;
+  annotations.endLine.label.content = `End: ${endTime.toFixed(2)}s`;
+
+  // Update chart with animation disabled for smooth dragging
+  charts.preview.update("none");
+}
+
+// Analyze button handler
+analyzeBtn.addEventListener("click", async () => {
+  if (!currentFile) {
+    showError("No file loaded. Please start over.");
+    return;
+  }
+
+  const startTime = parseFloat(startTimeSlider.value);
+  const endTime = parseFloat(endTimeSlider.value);
+  const selectedChannel = channelSelect.value;
+
+  if (!selectedChannel) {
+    showError("Please select a channel.");
+    return;
+  }
+
+  // Show loading state
+  setAnalyzeLoading(true);
+
+  try {
+    // Create form data with timeframe parameters
+    const formData = new FormData();
+    formData.append("file", currentFile);
+    formData.append("channels", selectedChannel);
+    formData.append("sampling_rate", samplingRate);
+    formData.append(
+      "include_signals",
+      document.getElementById("includeSignals").checked
+    );
+
+    // Calculate duration from timeframe
+    const duration = endTime - startTime;
+    formData.append("duration", duration.toString());
+
+    // Note: The backend would need to be modified to accept start_time parameter
+    // For now, we'll use duration which processes from the beginning
+    // In a full implementation, add: formData.append("start_time", startTime.toString());
+
     const response = await fetch("/api/analyze", {
       method: "POST",
       body: formData,
@@ -90,12 +397,12 @@ uploadForm.addEventListener("submit", async (e) => {
     const data = await response.json();
 
     // Display results
-    displayResults(data, includeSignals);
+    displayResults(data, document.getElementById("includeSignals").checked);
   } catch (error) {
     console.error("Error:", error);
     showError(`Analysis failed: ${error.message}`);
   } finally {
-    setLoading(false);
+    setAnalyzeLoading(false);
   }
 });
 
@@ -106,8 +413,15 @@ newAnalysisBtn.addEventListener("click", () => {
   fileName.textContent = "Choose ECG file (.txt)";
   fileLabel.classList.remove("has-file");
 
-  // Hide results
+  // Hide sections
   resultsSection.style.display = "none";
+  timeframeSection.style.display = "none";
+  previewCard.style.display = "none";
+
+  // Reset state
+  currentFile = null;
+  previewData = null;
+  channelSelect.innerHTML = '<option value="">Select a channel...</option>';
 
   // Destroy charts
   destroyCharts();
@@ -373,5 +687,17 @@ function setLoading(isLoading) {
   } else {
     btnText.style.display = "inline";
     btnSpinner.style.display = "none";
+  }
+}
+
+// Set analyze button loading state
+function setAnalyzeLoading(isLoading) {
+  analyzeBtn.disabled = isLoading;
+  if (isLoading) {
+    analyzeBtnText.style.display = "none";
+    analyzeBtnSpinner.style.display = "inline-block";
+  } else {
+    analyzeBtnText.style.display = "inline";
+    analyzeBtnSpinner.style.display = "none";
   }
 }

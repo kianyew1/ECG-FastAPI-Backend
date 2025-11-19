@@ -72,6 +72,112 @@ header h1 {
   margin-bottom: 2rem;
 }
 
+/* Timeframe Section */
+.timeframe-section {
+  margin-bottom: 2rem;
+}
+
+.timeframe-section h2 {
+  font-size: 2rem;
+  margin-bottom: 1.5rem;
+  color: var(--text-primary);
+}
+
+.channel-select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 1rem;
+  background: white;
+  cursor: pointer;
+  transition: border-color 0.3s ease;
+}
+
+.channel-select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.timeframe-controls {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: var(--bg-color);
+  border-radius: 8px;
+}
+
+.slider-group {
+  margin-bottom: 1.5rem;
+}
+
+.slider-group label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: var(--text-primary);
+}
+
+.time-slider {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: #e2e8f0;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.time-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--primary-color);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.time-slider::-webkit-slider-thumb:hover {
+  background: var(--primary-hover);
+  transform: scale(1.2);
+}
+
+.time-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--primary-color);
+  cursor: pointer;
+  border: none;
+  transition: all 0.3s ease;
+}
+
+.time-slider::-moz-range-thumb:hover {
+  background: var(--primary-hover);
+  transform: scale(1.2);
+}
+
+.timeframe-info {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: white;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.timeframe-info p {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+}
+
+.timeframe-info strong {
+  color: var(--primary-color);
+  font-size: 1.2rem;
+}
+
 .form-group {
   margin-bottom: 1.5rem;
 }
