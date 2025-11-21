@@ -32,6 +32,26 @@ let currentFile = null;
 let maxDuration = 0;
 let samplingRate = 500;
 
+// Channel selection handler
+channelSelect.addEventListener("change", (e) => {
+  if (e.target.value) {
+    loadChannelPreview(e.target.value);
+  } else {
+    previewCard.style.display = "none";
+  }
+});
+
+// Sampling rate change handler
+document.addEventListener("DOMContentLoaded", () => {
+  const samplingRateInput = document.getElementById("samplingRate");
+  if (samplingRateInput) {
+    samplingRateInput.addEventListener("input", (e) => {
+      samplingRate = parseInt(e.target.value) || 500;
+      updateSelectedDuration();
+    });
+  }
+});
+
 // File input change handler
 fileInput.addEventListener("change", (e) => {
   if (e.target.files.length > 0) {
@@ -44,12 +64,14 @@ fileInput.addEventListener("change", (e) => {
   }
 });
 
-// Form submit handler - now loads preview
+// Form submit handler - loads preview metadata only
 uploadForm.addEventListener("submit", async (e) => {
   e.preventDefault();
 
-  // Hide any previous errors
+  // Hide any previous errors and results
   hideError();
+  resultsSection.style.display = "none";
+  timeframeSection.style.display = "none";
 
   // Get form data
   const file = fileInput.files[0];
@@ -65,24 +87,17 @@ uploadForm.addEventListener("submit", async (e) => {
     return;
   }
 
-  // Store file and sampling rate
+  // Store file
   currentFile = file;
-  samplingRate = parseInt(document.getElementById("samplingRate").value) || 500;
 
   // Show loading state
   setLoading(true);
 
   try {
-    // Load preview data
+    // Load preview data - just metadata, no signals yet
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("sampling_rate", samplingRate);
-    formData.append("include_signals", "true");
-
-    const channels = document.getElementById("channels").value;
-    if (channels) {
-      formData.append("channels", channels);
-    }
+    formData.append("include_signals", "false"); // Don't load signals yet, just metadata
 
     const response = await fetch("/api/analyze", {
       method: "POST",
@@ -102,7 +117,7 @@ uploadForm.addEventListener("submit", async (e) => {
     setupTimeframeSelection();
   } catch (error) {
     console.error("Error:", error);
-    showError(`Failed to load preview: ${error.message}`);
+    showError(`Failed to load file: ${error.message}`);
   } finally {
     setLoading(false);
   }
@@ -110,17 +125,19 @@ uploadForm.addEventListener("submit", async (e) => {
 
 // Setup timeframe selection UI
 function setupTimeframeSelection() {
-  // Populate channel selector
+  // Populate channel selector with all available channels
   channelSelect.innerHTML = '<option value="">Select a channel...</option>';
   previewData.metadata.channels_available.forEach((channel) => {
     const option = document.createElement("option");
     option.value = channel;
     option.textContent = channel;
-    if (channel === previewData.metadata.processed_channel) {
-      option.selected = true;
-    }
     channelSelect.appendChild(option);
   });
+
+  // Select first channel by default
+  if (previewData.metadata.channels_available.length > 0) {
+    channelSelect.value = previewData.metadata.channels_available[0];
+  }
 
   // Set up duration
   maxDuration = previewData.metadata.duration_seconds;
@@ -129,13 +146,16 @@ function setupTimeframeSelection() {
   endTimeSlider.value = maxDuration;
   startTimeValue.textContent = "0.00";
   endTimeValue.textContent = maxDuration.toFixed(2);
+
+  // Update sampling rate from input (or use default)
+  samplingRate = parseInt(document.getElementById("samplingRate").value) || 500;
   updateSelectedDuration();
 
   // Show timeframe section
   timeframeSection.style.display = "block";
   timeframeSection.scrollIntoView({ behavior: "smooth", block: "start" });
 
-  // Load preview for selected channel
+  // Auto-load preview for the first available channel
   if (channelSelect.value) {
     loadChannelPreview(channelSelect.value);
   }
@@ -150,131 +170,175 @@ channelSelect.addEventListener("change", (e) => {
   }
 });
 
-// Load channel preview
-function loadChannelPreview(channel) {
-  if (!previewData || !previewData.raw_signal) return;
+// Load channel preview - fetches data for specific channel
+async function loadChannelPreview(channel) {
+  if (!currentFile) return;
 
+  // Show loading state on preview card
   previewCard.style.display = "block";
 
-  // Destroy existing preview chart
-  if (charts.preview) {
-    charts.preview.destroy();
+  // Add a loading indicator
+  const previewChart = document.getElementById("previewChart");
+  const loadingDiv = document.createElement("div");
+  loadingDiv.id = "previewLoading";
+  loadingDiv.className = "loading-overlay";
+  loadingDiv.innerHTML =
+    '<div class="spinner"></div><p>Loading channel preview...</p>';
+  previewChart.parentElement.insertBefore(loadingDiv, previewChart);
+
+  try {
+    // Fetch preview data for this specific channel
+    const formData = new FormData();
+    formData.append("file", currentFile);
+    formData.append("channels", channel);
+    formData.append("include_signals", "true"); // Get signals for preview
+    formData.append("sampling_rate", samplingRate);
+
+    const response = await fetch("/api/analyze", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(
+        errorData.detail || `HTTP error! status: ${response.status}`
+      );
+    }
+
+    const channelData = await response.json();
+
+    // Remove loading indicator
+    const loading = document.getElementById("previewLoading");
+    if (loading) loading.remove();
+
+    // Destroy existing preview chart
+    if (charts.preview) {
+      charts.preview.destroy();
+    }
+
+    // Create preview chart with annotations - using CLEANED signal
+    const ctx = document.getElementById("previewChart");
+    const maxPoints = 2000;
+    const signalData = downsample(
+      channelData.cleaned_signal.time,
+      channelData.cleaned_signal.values,
+      maxPoints
+    );
+
+    const startTime = parseFloat(startTimeSlider.value);
+    const endTime = parseFloat(endTimeSlider.value);
+
+    charts.preview = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: signalData.x,
+        datasets: [
+          {
+            label: `${channel} - Cleaned Signal`,
+            data: signalData.y,
+            borderColor: "#10b981",
+            borderWidth: 1.5,
+            pointRadius: 0,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        aspectRatio: 3,
+        plugins: {
+          legend: {
+            display: true,
+          },
+          annotation: {
+            annotations: {
+              selectionBox: {
+                type: "box",
+                xMin: startTime,
+                xMax: endTime,
+                backgroundColor: "rgba(16, 185, 129, 0.15)",
+                borderColor: "rgba(16, 185, 129, 0.5)",
+                borderWidth: 2,
+                label: {
+                  display: true,
+                  content: "Selected for Analysis",
+                  position: "center",
+                  color: "#059669",
+                  font: {
+                    weight: "bold",
+                    size: 12,
+                  },
+                },
+              },
+              startLine: {
+                type: "line",
+                xMin: startTime,
+                xMax: startTime,
+                borderColor: "#10b981",
+                borderWidth: 3,
+                borderDash: [5, 5],
+                label: {
+                  display: true,
+                  content: `Start: ${startTime.toFixed(2)}s`,
+                  position: "start",
+                  backgroundColor: "#10b981",
+                  color: "white",
+                  font: {
+                    weight: "bold",
+                    size: 11,
+                  },
+                  padding: 4,
+                },
+              },
+              endLine: {
+                type: "line",
+                xMin: endTime,
+                xMax: endTime,
+                borderColor: "#ef4444",
+                borderWidth: 3,
+                borderDash: [5, 5],
+                label: {
+                  display: true,
+                  content: `End: ${endTime.toFixed(2)}s`,
+                  position: "end",
+                  backgroundColor: "#ef4444",
+                  color: "white",
+                  font: {
+                    weight: "bold",
+                    size: 11,
+                  },
+                  padding: 4,
+                },
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: "Time (seconds)",
+            },
+            type: "linear",
+          },
+          y: {
+            title: {
+              display: true,
+              text: "Amplitude (mV)",
+            },
+          },
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Error loading channel preview:", error);
+    showError(`Failed to load preview for ${channel}: ${error.message}`);
+
+    // Remove loading indicator
+    const loading = document.getElementById("previewLoading");
+    if (loading) loading.remove();
   }
-
-  // Create preview chart with annotations
-  const ctx = document.getElementById("previewChart");
-  const maxPoints = 2000;
-  const signalData = downsample(
-    previewData.raw_signal.time,
-    previewData.raw_signal.values,
-    maxPoints
-  );
-
-  const startTime = parseFloat(startTimeSlider.value);
-  const endTime = parseFloat(endTimeSlider.value);
-
-  charts.preview = new Chart(ctx, {
-    type: "line",
-    data: {
-      labels: signalData.x,
-      datasets: [
-        {
-          label: `${channel} Signal`,
-          data: signalData.y,
-          borderColor: "#3b82f6",
-          borderWidth: 1,
-          pointRadius: 0,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: true,
-      aspectRatio: 3,
-      plugins: {
-        legend: {
-          display: true,
-        },
-        annotation: {
-          annotations: {
-            selectionBox: {
-              type: "box",
-              xMin: startTime,
-              xMax: endTime,
-              backgroundColor: "rgba(16, 185, 129, 0.15)",
-              borderColor: "rgba(16, 185, 129, 0.5)",
-              borderWidth: 2,
-              label: {
-                display: true,
-                content: "Selected for Analysis",
-                position: "center",
-                color: "#059669",
-                font: {
-                  weight: "bold",
-                  size: 12,
-                },
-              },
-            },
-            startLine: {
-              type: "line",
-              xMin: startTime,
-              xMax: startTime,
-              borderColor: "#10b981",
-              borderWidth: 3,
-              borderDash: [5, 5],
-              label: {
-                display: true,
-                content: `Start: ${startTime.toFixed(2)}s`,
-                position: "start",
-                backgroundColor: "#10b981",
-                color: "white",
-                font: {
-                  weight: "bold",
-                  size: 11,
-                },
-                padding: 4,
-              },
-            },
-            endLine: {
-              type: "line",
-              xMin: endTime,
-              xMax: endTime,
-              borderColor: "#ef4444",
-              borderWidth: 3,
-              borderDash: [5, 5],
-              label: {
-                display: true,
-                content: `End: ${endTime.toFixed(2)}s`,
-                position: "end",
-                backgroundColor: "#ef4444",
-                color: "white",
-                font: {
-                  weight: "bold",
-                  size: 11,
-                },
-                padding: 4,
-              },
-            },
-          },
-        },
-      },
-      scales: {
-        x: {
-          title: {
-            display: true,
-            text: "Time (seconds)",
-          },
-          type: "linear",
-        },
-        y: {
-          title: {
-            display: true,
-            text: "Amplitude (mV)",
-          },
-        },
-      },
-    },
-  });
 }
 
 // Slider event handlers
@@ -311,7 +375,13 @@ function updateSelectedDuration() {
   const startTime = parseFloat(startTimeSlider.value);
   const endTime = parseFloat(endTimeSlider.value);
   const duration = endTime - startTime;
-  const samples = Math.round(duration * samplingRate);
+
+  // Get current sampling rate from input if available, otherwise use stored value
+  const currentSamplingRate = document.getElementById("samplingRate")
+    ? parseInt(document.getElementById("samplingRate").value) || samplingRate
+    : samplingRate;
+
+  const samples = Math.round(duration * currentSamplingRate);
 
   selectedDuration.textContent = duration.toFixed(2);
   selectedSamples.textContent = samples.toLocaleString();
@@ -360,6 +430,9 @@ analyzeBtn.addEventListener("click", async () => {
     return;
   }
 
+  // Get sampling rate from input
+  samplingRate = parseInt(document.getElementById("samplingRate").value) || 500;
+
   // Show loading state
   setAnalyzeLoading(true);
 
@@ -369,18 +442,14 @@ analyzeBtn.addEventListener("click", async () => {
     formData.append("file", currentFile);
     formData.append("channels", selectedChannel);
     formData.append("sampling_rate", samplingRate);
-    formData.append(
-      "include_signals",
-      document.getElementById("includeSignals").checked
-    );
+
+    // Check if user wants signals (default true, unless unchecked)
+    const includeSignals = document.getElementById("includeSignals").checked;
+    formData.append("include_signals", includeSignals.toString());
 
     // Calculate duration from timeframe
     const duration = endTime - startTime;
     formData.append("duration", duration.toString());
-
-    // Note: The backend would need to be modified to accept start_time parameter
-    // For now, we'll use duration which processes from the beginning
-    // In a full implementation, add: formData.append("start_time", startTime.toString());
 
     const response = await fetch("/api/analyze", {
       method: "POST",
@@ -397,7 +466,7 @@ analyzeBtn.addEventListener("click", async () => {
     const data = await response.json();
 
     // Display results
-    displayResults(data, document.getElementById("includeSignals").checked);
+    displayResults(data, includeSignals);
   } catch (error) {
     console.error("Error:", error);
     showError(`Analysis failed: ${error.message}`);

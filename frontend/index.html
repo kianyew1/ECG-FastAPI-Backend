@@ -33,56 +33,8 @@
               />
             </div>
 
-            <div class="options-grid">
-              <div class="form-group">
-                <label for="duration">Duration (seconds)</label>
-                <input
-                  type="number"
-                  id="duration"
-                  name="duration"
-                  min="1"
-                  max="300"
-                  placeholder="Optional - analyze full file"
-                />
-              </div>
-
-              <div class="form-group">
-                <label for="channels">Channels</label>
-                <input
-                  type="text"
-                  id="channels"
-                  name="channels"
-                  placeholder="CH2,CH3,CH4"
-                  value="CH2,CH3,CH4"
-                />
-              </div>
-
-              <div class="form-group">
-                <label for="samplingRate">Sampling Rate (Hz)</label>
-                <input
-                  type="number"
-                  id="samplingRate"
-                  name="sampling_rate"
-                  value="500"
-                  min="100"
-                  max="2000"
-                />
-              </div>
-
-              <div class="form-group checkbox-group">
-                <label>
-                  <input
-                    type="checkbox"
-                    id="includeSignals"
-                    name="include_signals"
-                  />
-                  <span>Include signal data & charts</span>
-                </label>
-              </div>
-            </div>
-
             <button type="submit" id="submitBtn" class="btn-primary">
-              <span id="btnText">Preview ECG Data</span>
+              <span id="btnText">Load ECG File</span>
               <span
                 id="btnSpinner"
                 class="spinner"
@@ -104,15 +56,46 @@
           class="timeframe-section"
           style="display: none"
         >
-          <h2>📊 Select Timeframe for Analysis</h2>
+          <h2>📊 Configure Analysis Parameters</h2>
 
           <div class="card">
-            <h3>📡 Channel Selection</h3>
+            <h3>⚙️ Analysis Settings</h3>
+
             <div class="form-group">
-              <label for="channelSelect">Choose a channel to preview:</label>
+              <label for="samplingRate">Sampling Rate (Hz)</label>
+              <input
+                type="number"
+                id="samplingRate"
+                name="sampling_rate"
+                value="500"
+                min="100"
+                max="2000"
+              />
+              <small class="help-text"
+                >Expected sampling rate of your ECG recording</small
+              >
+            </div>
+
+            <div class="form-group">
+              <label for="channelSelect">Select Channel to Analyze:</label>
               <select id="channelSelect" class="channel-select">
                 <option value="">Select a channel...</option>
               </select>
+              <small class="help-text"
+                >Choose which ECG channel to analyze</small
+              >
+            </div>
+
+            <div class="form-group checkbox-group">
+              <label>
+                <input
+                  type="checkbox"
+                  id="includeSignals"
+                  name="include_signals"
+                  checked
+                />
+                <span>Include signal data & charts in results</span>
+              </label>
             </div>
           </div>
 
