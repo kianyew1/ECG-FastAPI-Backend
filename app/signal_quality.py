@@ -40,15 +40,18 @@ def assess_ecg_quality(ecg_cleaned: np.ndarray, sampling_rate: int = 500) -> Dic
         _, peaks_info = nk.ecg_peaks(ecg_cleaned, sampling_rate=sampling_rate, method='neurokit')
         r_peaks = peaks_info['ECG_R_Peaks']
         
-        # Fix artifacts in peak locations (crucial for runners)
-        r_peaks_corrected = nk.signal_fixpeaks(r_peaks, iterative=True, method="neurokit")
+        print(f"   Detected {len(r_peaks)} initial R-peaks")
+        print(f"   R-peaks type: {type(r_peaks)}")
+        print(f"   R-peaks shape: {r_peaks.shape if hasattr(r_peaks, 'shape') else 'N/A'}")
         
-        # Ensure r_peaks_corrected is a numpy array
-        if not isinstance(r_peaks_corrected, np.ndarray):
-            r_peaks_corrected = np.array(r_peaks_corrected)
+        # Ensure r_peaks is a proper numpy array of integers
+        if not isinstance(r_peaks, np.ndarray):
+            r_peaks = np.array(r_peaks, dtype=int)
         
-        print(f"   Detected {len(r_peaks_corrected)} R-peaks")
-        print(f"   Corrected {len(r_peaks) - len(r_peaks_corrected)} artifact peaks")
+        # Skip peak correction for now to avoid the array issue
+        r_peaks_corrected = r_peaks.astype(int)
+        
+        print(f"   Using {len(r_peaks_corrected)} R-peaks for analysis")
         
     except Exception as e:
         print(f"   ERROR in peak detection: {e}")
@@ -103,8 +106,8 @@ def analyze_sliding_windows(ecg_cleaned: np.ndarray, r_peaks: np.ndarray,
     bad_segments = []
     
     print("\n3. Sliding Window Analysis...")
-    print("   Window | Quality | Kurtosis |   HR   | SDNN | Status")
-    print("   -------|---------|----------|--------|------|--------")
+    print("   Window | Quality (mSQI) | Kurtosis |   HR   | SDNN | Status")
+    print("   -------|----------------|----------|--------|------|--------")
     
     # Step 3: Loop through windows
     for window_idx in range(0, max_start + 1, stride):
@@ -159,7 +162,7 @@ def analyze_sliding_windows(ecg_cleaned: np.ndarray, r_peaks: np.ndarray,
         best_window = good_windows.iloc[0]
         best_segment_indices = [int(best_window['start_idx']), int(best_window['end_idx'])]
         print(f"   Best segment found: Window {best_window['window']} (indices {best_segment_indices})")
-        print(f"   Quality: {best_window['mSQI']:.3f}, Kurtosis: {best_window['kSQI']:.2f}")
+        print(f"   Quality (mSQI): {best_window['mSQI']:.3f}, Kurtosis: {best_window['kSQI']:.2f}")
     else:
         # No good windows, take the least bad one
         print("   WARNING: No GOOD windows found, selecting best available")
@@ -197,6 +200,13 @@ def calculate_window_metrics(segment: np.ndarray, relative_peaks: np.ndarray,
                            sampling_rate: int, start_idx: int, end_idx: int, window_number: int) -> Dict:
     """
     Calculate quality metrics for a single 10-second window.
+    
+    Classification Logic:
+    - REJECTED: kSQI < 3.0 (external artifacts/motion)
+    - UNRELIABLE: mSQI < 0.5 (poor morphological quality)
+    - GOOD: kSQI > 5.0 AND mSQI > 0.8 (optimal quality)
+    - ACCEPTABLE: mSQI > 0.8 AND kSQI < 4.0 (baseline wander/stepping artifact)
+    - UNRELIABLE: all other cases
     """
     
     # Initialize metrics dictionary
@@ -286,6 +296,12 @@ def calculate_window_metrics(segment: np.ndarray, relative_peaks: np.ndarray,
     elif kSQI > 5.0 and mSQI > 0.8:
         status = "GOOD"
         metrics['status'] = 'GOOD'
+
+    elif mSQI > 0.8 and kSQI < 4.0:
+        # This is characteristic of Baseline Wander (Stepping artifact)
+        status = "ACCEPTABLE (Baseline Wander detected)"
+        metrics['status'] = 'GOOD' # Still usable
+        # Optional: Apply a small penalty to sorting if you strictly want the flattest baseline
     
     # In-between cases
     else:
@@ -297,132 +313,9 @@ def calculate_window_metrics(segment: np.ndarray, relative_peaks: np.ndarray,
             metrics['status'] = 'UNRELIABLE'
     
     # Print decision process
-    print(f"   {window_number:3d}    | {mSQI:6.3f}  | {kSQI:7.2f}  | {metrics['hr_bpm']:5.0f}  | {metrics['sdnn_ms']:4.0f} | {status}")
+    print(f"   {window_number:3d}    | {mSQI:13.3f}  | {kSQI:7.2f}  | {metrics['hr_bpm']:5.0f}  | {metrics['sdnn_ms']:4.0f} | {status}")
     
     return metrics
-
-
-# =============================================================================
-# LEGACY COMPATIBILITY FUNCTIONS
-# =============================================================================
-
-def assess_rr_segment_quality(ecg_cleaned: np.ndarray, r_peaks: np.ndarray, 
-                            sampling_rate: int = 500) -> Dict:
-    """
-    Legacy compatibility wrapper for the new ambulatory assessment system.
-    
-    Note: This now uses the sliding window approach instead of R-R segment analysis.
-    """
-    
-    # Use the new ambulatory assessment
-    result = assess_ecg_quality(ecg_cleaned, sampling_rate)
-    
-    # Convert to legacy format for compatibility
-    best_start, best_end = result['best_segment_indices']
-    
-    # Create fake segment metrics for the best segment only
-    segment_metrics = [{
-        'segment_number': 1,
-        'start_time_s': best_start / sampling_rate,
-        'end_time_s': best_end / sampling_rate,
-        'noise_score': 0.9,  # Placeholder values
-        'noise_status': 'PASS',
-        'baseline_score': 0.9,
-        'baseline_status': 'PASS', 
-        'artifact_score': 0.9,
-        'artifact_status': 'PASS',
-        'stability_score': 0.9,
-        'stability_status': 'PASS',
-        'overall_status': 'PASS'
-    }]
-    
-    # Convert bad segments to time ranges
-    poor_quality_ranges = [(start/sampling_rate, end/sampling_rate) 
-                          for start, end in result['bad_segments']]
-    
-    return {
-        'full_signal_quality': {
-            'signal_length_seconds': len(ecg_cleaned) / sampling_rate,
-            'num_beats': len(r_peaks),
-            'ambulatory_assessment': result['summary']
-        },
-        'poor_quality_ranges': poor_quality_ranges,
-        'segment_metrics': segment_metrics,
-        'overall_quality': result['summary'].get('good_percentage', 0) / 100,
-        'total_segments': 1,
-        'poor_segment_count': len(poor_quality_ranges),
-        'ambulatory_result': result  # Include full result for debugging
-    }
-
-
-def get_poor_quality_timestamps(ecg_cleaned: np.ndarray, r_peaks: np.ndarray, 
-                              sampling_rate: int = 500) -> List[Tuple[float, float]]:
-    """
-    Convenience function to get timestamp ranges of poor quality segments.
-    """
-    result = assess_ecg_quality(ecg_cleaned, sampling_rate)
-    return [(start/sampling_rate, end/sampling_rate) 
-            for start, end in result['bad_segments']]
-
-
-def generate_quality_report(ecg_cleaned: np.ndarray, r_peaks: np.ndarray, 
-                          sampling_rate: int = 500) -> Dict:
-    """
-    Generate a comprehensive ambulatory ECG quality report.
-    """
-    result = assess_ecg_quality(ecg_cleaned, sampling_rate)
-    summary = result['summary']
-    
-    # Best segment info
-    best_start, best_end = result['best_segment_indices'] 
-    best_duration = (best_end - best_start) / sampling_rate
-    
-    # Overall assessment
-    if summary['status'] == 'SUCCESS' and summary['good_percentage'] >= 50:
-        assessment = 'EXCELLENT'
-    elif summary['status'] == 'SUCCESS' and summary['good_percentage'] >= 25:
-        assessment = 'GOOD'
-    elif summary['good_percentage'] >= 10:
-        assessment = 'ACCEPTABLE'
-    else:
-        assessment = 'POOR'
-    
-    return {
-        'overall_assessment': assessment,
-        'quality_score': summary['good_percentage'] / 100,
-        'best_segment_start_s': best_start / sampling_rate,
-        'best_segment_duration_s': best_duration,
-        'total_windows_analyzed': summary['total_windows'],
-        'good_windows_count': summary['good_windows'],
-        'rejected_windows_count': summary['rejected_windows'],
-        'ambulatory_summary': summary,
-        'analysis_method': 'Ambulatory ECG Quality Assessment (10s sliding windows)',
-        'analysis_summary': f"Analyzed {summary['total_windows']} windows. "
-                          f"Quality assessment: {assessment} ({summary['good_percentage']:.1f}% good windows). "
-                          f"Best 10s segment: {best_start/sampling_rate:.1f}s - {best_end/sampling_rate:.1f}s."
-    }
-
-
-def validate_signal_for_analysis(ecg_cleaned: np.ndarray, r_peaks: np.ndarray, 
-                               sampling_rate: int = 500, min_good_ratio: float = 0.2) -> Tuple[bool, str]:
-    """
-    Validate if the ECG signal is suitable for clinical analysis using ambulatory assessment.
-    """
-    if len(ecg_cleaned) < 10 * sampling_rate:
-        return False, "Signal too short for ambulatory assessment (< 10s)"
-    
-    result = assess_ecg_quality(ecg_cleaned, sampling_rate)
-    summary = result['summary']
-    
-    if summary['status'] == 'FAILED':
-        return False, f"Assessment failed: {summary.get('error', 'Unknown error')}"
-    
-    good_ratio = summary['good_percentage'] / 100
-    
-    if good_ratio < min_good_ratio:
-        return False, f"Insufficient quality windows ({good_ratio:.1%} < {min_good_ratio:.1%})"
-    
-    return True, f"Signal quality acceptable ({good_ratio:.1%} good windows)"
 
 
 # Module information
@@ -442,7 +335,8 @@ def get_module_info() -> Dict:
         'thresholds': {
             'external_artifact': 'kSQI < 3.0',
             'unreliable': 'mSQI < 0.5', 
-            'good': 'kSQI > 5.0 AND mSQI > 0.8'
+            'good': 'kSQI > 5.0 AND mSQI > 0.8',
+            'baseline_wander': 'mSQI > 0.8 AND kSQI < 4.0 (acceptable quality with motion artifact)'
         },
         'primary_function': 'assess_ecg_quality',
         'output_format': 'Best 10s segment selection with bad segment identification',
