@@ -40,7 +40,7 @@ body {
   max-width: 100%;
   width: 100%;
   margin: 0;
-  padding: 2rem;
+  padding: 2rem 4rem; /* Added horizontal padding for better laptop screen experience */
   flex: 1;
 }
 
@@ -610,14 +610,15 @@ footer {
 }
 
 .quality-details-toggle summary::after {
-  content: "▼";
+  content: "►";
   font-size: 0.8rem;
   color: var(--text-secondary);
   transition: transform 0.2s ease;
+  margin-left: auto;
 }
 
 .quality-details-toggle[open] summary::after {
-  transform: rotate(180deg);
+  transform: rotate(90deg);
 }
 
 .quality-table-container {
@@ -795,12 +796,7 @@ footer {
   color: var(--text-primary);
 }
 
-.quality-card-toggle summary:hover {
-  background: rgba(0, 0, 0, 0.02);
-  border-radius: 4px;
-  margin: 0 -0.5rem;
-  padding: 0.75rem 0.5rem;
-}
+/* Removed hover effects on summary elements to eliminate unwanted interactions */
 
 .quality-card-content {
   padding-top: 1rem;

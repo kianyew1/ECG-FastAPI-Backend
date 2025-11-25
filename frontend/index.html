@@ -105,7 +105,63 @@
                 <h3>✅ Data Quality Check</h3>
               </summary>
               <div class="quality-card-content">
-                <!-- Quality check results will be displayed here -->
+                <!-- Quality chart container -->
+                <div
+                  id="qualityChartContainer"
+                  style="
+                    position: relative;
+                    height: 420px;
+                    width: 100%;
+                    display: none;
+                  "
+                >
+                  <canvas
+                    id="qualityChart"
+                    style="position: relative !important"
+                  ></canvas>
+                </div>
+
+                <!-- Quality details container -->
+                <div
+                  id="qualityDetailsContainer"
+                  class="quality-details"
+                  style="display: none"
+                >
+                  <div class="quality-content-wrapper">
+                    <!-- Quality Summary -->
+                    <div class="quality-summary">
+                      <h4>Quality Assessment Summary</h4>
+                      <div class="quality-stats" id="qualityStats">
+                        <!-- Stats will be populated by JavaScript -->
+                      </div>
+                    </div>
+
+                    <!-- Quality Details Toggle -->
+                    <details class="quality-details-toggle">
+                      <summary id="qualityDetailsSummary">
+                        Detailed Window Analysis
+                      </summary>
+                      <div class="quality-table-container">
+                        <table class="quality-table">
+                          <thead>
+                            <tr>
+                              <th>Window</th>
+                              <th>Time Range (s)</th>
+                              <th>mSQI</th>
+                              <th>kSQI</th>
+                              <th>HR (bpm)</th>
+                              <th>SDNN</th>
+                              <th>Status</th>
+                            </tr>
+                          </thead>
+                          <tbody id="qualityTableBody">
+                            <!-- Table rows will be populated by JavaScript -->
+                          </tbody>
+                        </table>
+                      </div>
+                    </details>
+                  </div>
+                </div>
               </div>
             </details>
           </div>

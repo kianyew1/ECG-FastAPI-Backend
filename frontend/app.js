@@ -1,27 +1,17 @@
-// DOM Elements
+// DOM Elements - Core functionality only
 const uploadForm = document.getElementById("uploadForm");
 const fileInput = document.getElementById("fileInput");
 const fileName = document.getElementById("fileName");
 const fileLabel = document.querySelector(".file-label");
 const submitBtn = document.getElementById("submitBtn");
-const btnText = document.getElementById("btnText");
-const btnSpinner = document.getElementById("btnSpinner");
 const errorMessage = document.getElementById("errorMessage");
 const resultsSection = document.getElementById("resultsSection");
-const chartsSection = document.getElementById("chartsSection");
-const newAnalysisBtn = document.getElementById("newAnalysisBtn");
 const timeframeSection = document.getElementById("timeframeSection");
 const channelSelect = document.getElementById("channelSelect");
 const previewCard = document.getElementById("previewCard");
 const startTimeSlider = document.getElementById("startTimeSlider");
 const endTimeSlider = document.getElementById("endTimeSlider");
-const startTimeValue = document.getElementById("startTimeValue");
-const endTimeValue = document.getElementById("endTimeValue");
-const selectedDuration = document.getElementById("selectedDuration");
-const selectedSamples = document.getElementById("selectedSamples");
 const analyzeBtn = document.getElementById("analyzeBtn");
-const analyzeBtnText = document.getElementById("analyzeBtnText");
-const analyzeBtnSpinner = document.getElementById("analyzeBtnSpinner");
 
 // Chart instances
 let charts = {};
@@ -70,8 +60,8 @@ uploadForm.addEventListener("submit", async (e) => {
 
   // Hide any previous errors and results
   hideError();
-  resultsSection.style.display = "none";
-  timeframeSection.style.display = "none";
+  document.getElementById("resultsSection").style.display = "none";
+  document.getElementById("timeframeSection").style.display = "none";
 
   // Get form data
   const file = fileInput.files[0];
@@ -144,16 +134,16 @@ function setupTimeframeSelection() {
   startTimeSlider.max = maxDuration;
   endTimeSlider.max = maxDuration;
   endTimeSlider.value = maxDuration;
-  startTimeValue.textContent = "0.00";
-  endTimeValue.textContent = maxDuration.toFixed(2);
+  document.getElementById("startTimeValue").textContent = "0.00";
+  document.getElementById("endTimeValue").textContent = maxDuration.toFixed(2);
 
   // Update sampling rate from input (or use default)
   samplingRate = parseInt(document.getElementById("samplingRate").value) || 500;
   updateSelectedDuration();
 
   // Show timeframe section
-  timeframeSection.style.display = "block";
-  timeframeSection.scrollIntoView({ behavior: "smooth", block: "start" });
+  document.getElementById("timeframeSection").style.display = "block";
+  document.getElementById("timeframeSection").scrollIntoView({ behavior: "smooth", block: "start" });
 
   // Auto-load preview for the first available channel
   if (channelSelect.value) {
@@ -175,7 +165,7 @@ async function loadChannelPreview(channel) {
   if (!currentFile) return;
 
   // Show loading state on preview card
-  previewCard.style.display = "block";
+  document.getElementById("previewCard").style.display = "block";
 
   // Add a loading indicator
   const previewChart = document.getElementById("previewChart");
@@ -362,7 +352,7 @@ startTimeSlider.addEventListener("input", (e) => {
     e.target.value = Math.max(0, endTime - 0.1);
   }
 
-  startTimeValue.textContent = parseFloat(e.target.value).toFixed(2);
+  document.getElementById("startTimeValue").textContent = parseFloat(e.target.value).toFixed(2);
   updateSelectedDuration();
   updatePreviewAnnotations();
 });
@@ -376,7 +366,7 @@ endTimeSlider.addEventListener("input", (e) => {
     e.target.value = Math.min(maxDuration, startTime + 0.1);
   }
 
-  endTimeValue.textContent = parseFloat(e.target.value).toFixed(2);
+  document.getElementById("endTimeValue").textContent = parseFloat(e.target.value).toFixed(2);
   updateSelectedDuration();
   updatePreviewAnnotations();
 });
@@ -394,8 +384,8 @@ function updateSelectedDuration() {
 
   const samples = Math.round(duration * currentSamplingRate);
 
-  selectedDuration.textContent = duration.toFixed(2);
-  selectedSamples.textContent = samples.toLocaleString();
+  document.getElementById("selectedDuration").textContent = duration.toFixed(2);
+  document.getElementById("selectedSamples").textContent = samples.toLocaleString();
 }
 
 // Update preview chart annotations
@@ -487,16 +477,16 @@ analyzeBtn.addEventListener("click", async () => {
 });
 
 // New analysis button handler
-newAnalysisBtn.addEventListener("click", () => {
+document.getElementById("newAnalysisBtn").addEventListener("click", () => {
   // Reset form
   uploadForm.reset();
-  fileName.textContent = "Choose ECG file (.txt)";
-  fileLabel.classList.remove("has-file");
+  document.getElementById("fileName").textContent = "Choose ECG file (.txt)";
+  document.querySelector(".file-label").classList.remove("has-file");
 
   // Hide sections
-  resultsSection.style.display = "none";
-  timeframeSection.style.display = "none";
-  previewCard.style.display = "none";
+  document.getElementById("resultsSection").style.display = "none";
+  document.getElementById("timeframeSection").style.display = "none";
+  document.getElementById("previewCard").style.display = "none";
 
   // Hide quality card and destroy quality chart
   const qualityCard = document.getElementById("qualityCard");
@@ -549,19 +539,19 @@ function displayResults(data, includeSignals) {
     data.statistics.sampling_rate;
 
   // Show results section
-  resultsSection.style.display = "block";
+  document.getElementById("resultsSection").style.display = "block";
 
   // Handle charts if signals are included
   if (includeSignals && data.raw_signal) {
-    chartsSection.style.display = "block";
+    document.getElementById("chartsSection").style.display = "block";
     destroyResultCharts(); // Clear any existing result charts but preserve preview/quality
     createCharts(data);
   } else {
-    chartsSection.style.display = "none";
+    document.getElementById("chartsSection").style.display = "none";
   }
 
   // Scroll to results
-  resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+  document.getElementById("resultsSection").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 // Create charts function
@@ -754,20 +744,23 @@ function displayQualityAssessment(qualityData, cleanedSignalData) {
     charts.quality.destroy();
   }
   
-  // Create quality chart canvas if it doesn't exist
-  let qualityChartContainer = document.getElementById("qualityChartContainer");
-  if (!qualityChartContainer) {
-    qualityChartContainer = document.createElement("div");
-    qualityChartContainer.id = "qualityChartContainer";
-    qualityChartContainer.style.position = "relative";
-    qualityChartContainer.style.height = "420px";
-    qualityChartContainer.style.width = "100%";
-    qualityChartContainer.innerHTML = '<canvas id="qualityChart" style="position: relative !important;"></canvas>';
-    
-    // Insert into the quality-card-content container
-    const qualityContent = qualityCard.querySelector(".quality-card-content");
-    qualityContent.appendChild(qualityChartContainer);
-  }
+  // Setup and show chart container (already exists in HTML)
+  const qualityChartContainer = document.getElementById("qualityChartContainer");
+  qualityChartContainer.style.display = "block";
+  
+  // Show quality details container
+  const qualityDetailsContainer = document.getElementById("qualityDetailsContainer");
+  qualityDetailsContainer.style.display = "block";
+  
+  // Create quality chart
+  createQualityChart(qualityData, cleanedSignalData);
+  
+  // Populate quality summary
+  populateQualitySummary(qualityData);
+  
+  // Populate quality table
+  populateQualityTable(qualityData);
+}
   
   // Prepare signal data for chart
   const maxPoints = 2000;
@@ -896,93 +889,280 @@ function displayQualityAssessment(qualityData, cleanedSignalData) {
     },
   });
   
-  // Create or update quality summary table
-  let qualityDetailsContainer = document.getElementById("qualityDetailsContainer");
-  if (!qualityDetailsContainer) {
-    qualityDetailsContainer = document.createElement("div");
-    qualityDetailsContainer.id = "qualityDetailsContainer";
-    qualityDetailsContainer.className = "quality-details";
-    qualityChartContainer.insertAdjacentElement("afterend", qualityDetailsContainer);
+// Display quality assessment function
+function displayQualityAssessment(qualityData, cleanedSignalData) {
+  const qualityCard = document.getElementById("qualityCard");
+  
+  // Show quality card
+  qualityCard.style.display = "block";
+  
+  // Destroy existing quality chart
+  if (charts.quality) {
+    charts.quality.destroy();
   }
   
-  // Create quality summary and details
+  // Setup and show chart container
+  const qualityChartContainer = document.getElementById("qualityChartContainer");
+  qualityChartContainer.style.display = "block";
+  
+  // Show quality details container
+  const qualityDetailsContainer = document.getElementById("qualityDetailsContainer");
+  qualityDetailsContainer.style.display = "block";
+  
+  // Create quality chart
+  createQualityChart(qualityData, cleanedSignalData);
+  
+  // Populate quality summary
+  populateQualitySummary(qualityData);
+  
+  // Populate quality table
+  populateQualityTable(qualityData);
+}
+
+// Create quality chart
+function createQualityChart(qualityData, cleanedSignalData) {
+  // Prepare signal data for chart
+  const maxPoints = 2000;
+  const signalData = downsample(
+    cleanedSignalData.time,
+    cleanedSignalData.values,
+    maxPoints
+  );
+  
+  // Create annotations for quality segments
+  const annotations = {};
+  
+  // Add best segment highlighting (green)
+  const bestStartTime = qualityData.best_segment_times[0];
+  const bestEndTime = qualityData.best_segment_times[1];
+  
+  annotations.bestSegment = {
+    type: "box",
+    xMin: bestStartTime,
+    xMax: bestEndTime,
+    backgroundColor: "rgba(34, 197, 94, 0.4)",
+    borderColor: "rgba(34, 197, 94, 0.8)",
+    borderWidth: 3,
+    label: {
+      display: true,
+      content: "Best Quality Segment",
+      position: "start",
+      backgroundColor: "rgba(34, 197, 94, 0.9)",
+      color: "black",
+      font: {
+        weight: "bold",
+        size: 10,
+      },
+      padding: 4,
+    },
+  };
+  
+  // Add bad segments (red shading)
+  qualityData.bad_segment_times.forEach((badSegment, index) => {
+    annotations[`badSegment${index}`] = {
+      type: "box",
+      xMin: badSegment[0],
+      xMax: badSegment[1],
+      backgroundColor: "rgba(239, 68, 68, 0.05)",
+      borderColor: "rgba(239, 68, 68, 0.4)",
+      borderWidth: 1,
+      label: {
+        display: index === 0, // Only show label on first bad segment
+        content: "Poor Quality",
+        position: "start",
+        backgroundColor: "rgba(239, 68, 68, 0.9)",
+        color: "black",
+        font: {
+          weight: "bold",
+          size: 10,
+        },
+        padding: 4,
+      },
+    };
+  });
+  
+  // Create quality chart
+  const qualityCtx = document.getElementById("qualityChart");
+  charts.quality = new Chart(qualityCtx, {
+    type: "line",
+    data: {
+      labels: signalData.x,
+      datasets: [
+        {
+          label: "Cleaned ECG Signal (Quality Assessment)",
+          data: signalData.y,
+          borderColor: "#6366f1",
+          borderWidth: 1,
+          pointRadius: 0,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        intersect: false,
+        mode: 'index'
+      },
+      hover: {
+        intersect: false,
+        animationDuration: 0
+      },
+      animation: false,
+      plugins: {
+        legend: {
+          display: true,
+          onClick: function() {
+            return false;
+          },
+          onHover: function() {
+            return false;
+          },
+          labels: {
+            usePointStyle: false,
+            boxWidth: 12,
+            color: '#374151'
+          }
+        },
+        annotation: {
+          annotations: annotations,
+        },
+      },
+      scales: {
+        x: {
+          title: {
+            display: true,
+            text: "Time (seconds)",
+          },
+          type: "linear",
+        },
+        y: {
+          title: {
+            display: true,
+            text: "Amplitude (mV)",
+          },
+        },
+      }
+    },
+  });
+}
+
+// Populate quality summary
+function populateQualitySummary(qualityData) {
   const summary = qualityData.summary;
   const windows = qualityData.windows;
+  const bestStartTime = qualityData.best_segment_times[0];
+  const bestEndTime = qualityData.best_segment_times[1];
   
-  // Find the best window that corresponds to the best segment
+  // Find the best window
   const bestWindow = windows.find(window => 
     window.start_time <= bestStartTime && window.end_time >= bestEndTime
   ) || windows.find(window => 
     Math.abs((window.start_time + window.end_time) / 2 - (bestStartTime + bestEndTime) / 2) < 5
   );
   
-  qualityDetailsContainer.innerHTML = `
-    <div class="quality-content-wrapper" style="display: flex !important; gap: 1rem; align-items: flex-start; flex-direction: row !important; border: 2px dashed #e2e8f0; padding: 1rem; background: #f9fafb;">
-      <div class="quality-summary" style="background: #f8fafc; padding: 0.75rem; border-radius: 8px; border: 1px solid #6366f1; flex: 0 0 280px; max-width: 280px; font-size: 0.875rem;">
-        <h4 style="font-size: 1rem; margin-bottom: 0.5rem; font-weight: 600;">Quality Assessment Summary</h4>
-        <div class="quality-stats">
-          <div class="quality-stat" style="display: flex; justify-content: space-between; align-items: center; padding: 0.375rem 0.5rem; margin-bottom: 0.25rem; background: white; border-radius: 4px; border: 1px solid #e2e8f0; font-size: 0.8rem;">
-            <span class="quality-label" style="font-weight: 500; color: #64748b;">Overall Status:</span>
-            <span class="quality-value status-${summary.status.toLowerCase()}" style="font-weight: 600; font-size: 0.8rem;">${summary.status}</span>
-          </div>
-          <div class="quality-stat" style="display: flex; justify-content: space-between; align-items: center; padding: 0.375rem 0.5rem; margin-bottom: 0.25rem; background: white; border-radius: 4px; border: 1px solid #e2e8f0; font-size: 0.8rem;">
-            <span class="quality-label" style="font-weight: 500; color: #64748b;">Quality Rate:</span>
-            <span class="quality-value" style="font-weight: 600; font-size: 0.8rem;">${summary.good_percentage.toFixed(1)}%</span>
-          </div>
-          <div class="quality-stat" style="display: flex; justify-content: space-between; align-items: center; padding: 0.375rem 0.5rem; margin-bottom: 0.25rem; background: white; border-radius: 4px; border: 1px solid #e2e8f0; font-size: 0.8rem;">
-            <span class="quality-label" style="font-weight: 500; color: #64748b;">Good Windows:</span>
-            <span class="quality-value" style="font-weight: 600; font-size: 0.8rem;">${summary.good_windows}/${summary.total_windows}</span>
-          </div>
-          <div class="quality-stat" style="display: flex; justify-content: space-between; align-items: center; padding: 0.375rem 0.5rem; margin-bottom: 0.25rem; background: white; border-radius: 4px; border: 1px solid #e2e8f0; font-size: 0.8rem;">
-            <span class="quality-label" style="font-weight: 500; color: #64748b;">Best Segment:</span>
-            <span class="quality-value" style="font-weight: 600; font-size: 0.8rem;">${bestStartTime.toFixed(2)}s - ${bestEndTime.toFixed(2)}s</span>
-          </div>
-          ${bestWindow ? `
-          <div class="quality-stat" style="display: flex; justify-content: space-between; align-items: center; padding: 0.375rem 0.5rem; margin-bottom: 0.25rem; background: white; border-radius: 4px; border: 1px solid #e2e8f0; font-size: 0.8rem;">
-            <span class="quality-label" style="font-weight: 500; color: #64748b;">Best Window mSQI:</span>
-            <span class="quality-value" style="font-weight: 600; font-size: 0.8rem;">${bestWindow.mSQI.toFixed(3)}</span>
-          </div>
-          <div class="quality-stat" style="display: flex; justify-content: space-between; align-items: center; padding: 0.375rem 0.5rem; margin-bottom: 0.25rem; background: white; border-radius: 4px; border: 1px solid #e2e8f0; font-size: 0.8rem;">
-            <span class="quality-label" style="font-weight: 500; color: #64748b;">Best Window kSQI:</span>
-            <span class="quality-value" style="font-weight: 600; font-size: 0.8rem;">${bestWindow.kSQI.toFixed(2)}</span>
-          </div>
-          ` : ''}
-        </div>
-      </div>
-      
-      <details class="quality-details-toggle" style="flex: 1; min-width: 500px; border: 1px solid #6366f1; border-radius: 8px; padding: 1rem; background: white; margin-left: 1rem;">
-        <summary style="font-size: 1rem; font-weight: 600; cursor: pointer; padding: 0.5rem 0;">Detailed Window Analysis (${windows.length} windows)</summary>
-        <div class="quality-table-container">
-          <table class="quality-table">
-            <thead>
-              <tr>
-                <th>Window</th>
-                <th>Time Range (s)</th>
-                <th>mSQI</th>
-                <th>kSQI</th>
-                <th>HR (bpm)</th>
-                <th>SDNN</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${windows.map(window => `
-                <tr class="quality-row status-${window.status.toLowerCase()}">
-                  <td>${window.window}</td>
-                  <td>${window.start_time.toFixed(1)} - ${window.end_time.toFixed(1)}</td>
-                  <td>${window.mSQI.toFixed(3)}</td>
-                  <td>${window.kSQI.toFixed(2)}</td>
-                  <td>${window.heart_rate.toFixed(1)}</td>
-                  <td>${window.sdnn.toFixed(2)}</td>
-                  <td><span class="status-badge status-${window.status.toLowerCase()}">${window.status}</span></td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-      </details>
-    </div>
-  `;
+  const qualityStats = document.getElementById("qualityStats");
+  
+  // Create stats elements iteratively
+  const stats = [
+    {
+      label: "Overall Status:",
+      value: summary.status,
+      className: `status-${summary.status.toLowerCase()}`
+    },
+    {
+      label: "Quality Rate:",
+      value: `${summary.good_percentage.toFixed(1)}%`
+    },
+    {
+      label: "Good Windows:",
+      value: `${summary.good_windows}/${summary.total_windows}`
+    },
+    {
+      label: "Best Segment:",
+      value: `${bestStartTime.toFixed(2)}s - ${bestEndTime.toFixed(2)}s`
+    }
+  ];
+  
+  // Add best window stats if available
+  if (bestWindow) {
+    stats.push(
+      {
+        label: "Best Window mSQI:",
+        value: bestWindow.mSQI.toFixed(3)
+      },
+      {
+        label: "Best Window kSQI:",
+        value: bestWindow.kSQI.toFixed(2)
+      }
+    );
+  }
+  
+  // Clear existing stats
+  qualityStats.innerHTML = '';
+  
+  // Create stat elements
+  stats.forEach(stat => {
+    const statDiv = document.createElement("div");
+    statDiv.className = "quality-stat";
+    
+    const labelSpan = document.createElement("span");
+    labelSpan.className = "quality-label";
+    labelSpan.textContent = stat.label;
+    
+    const valueSpan = document.createElement("span");
+    valueSpan.className = stat.className ? `quality-value ${stat.className}` : "quality-value";
+    valueSpan.textContent = stat.value;
+    
+    statDiv.appendChild(labelSpan);
+    statDiv.appendChild(valueSpan);
+    qualityStats.appendChild(statDiv);
+  });
+}
+
+// Populate quality table
+function populateQualityTable(qualityData) {
+  const windows = qualityData.windows;
+  const tableBody = document.getElementById("qualityTableBody");
+  const detailsSummary = document.getElementById("qualityDetailsSummary");
+  
+  // Update summary text
+  detailsSummary.textContent = `Detailed Window Analysis (${windows.length} windows)`;
+  
+  // Clear existing rows
+  tableBody.innerHTML = '';
+  
+  // Create rows iteratively
+  windows.forEach(window => {
+    const row = document.createElement("tr");
+    row.className = `quality-row status-${window.status.toLowerCase()}`;
+    
+    // Create cells
+    const cells = [
+      window.window,
+      `${window.start_time.toFixed(1)} - ${window.end_time.toFixed(1)}`,
+      window.mSQI.toFixed(3),
+      window.kSQI.toFixed(2),
+      window.heart_rate.toFixed(1),
+      window.sdnn.toFixed(2)
+    ];
+    
+    cells.forEach(cellContent => {
+      const cell = document.createElement("td");
+      cell.textContent = cellContent;
+      row.appendChild(cell);
+    });
+    
+    // Create status cell with badge
+    const statusCell = document.createElement("td");
+    const statusBadge = document.createElement("span");
+    statusBadge.className = `status-badge status-${window.status.toLowerCase()}`;
+    statusBadge.textContent = window.status;
+    statusCell.appendChild(statusBadge);
+    row.appendChild(statusCell);
+    
+    tableBody.appendChild(row);
+  });
 }
 
 // Destroy all charts
@@ -1007,18 +1187,24 @@ function destroyResultCharts() {
 
 // Show error message
 function showError(message) {
+  const errorMessage = document.getElementById("errorMessage");
   errorMessage.textContent = message;
   errorMessage.style.display = "block";
 }
 
 // Hide error message
 function hideError() {
+  const errorMessage = document.getElementById("errorMessage");
   errorMessage.style.display = "none";
   errorMessage.textContent = "";
 }
 
 // Set loading state
 function setLoading(isLoading) {
+  const submitBtn = document.getElementById("submitBtn");
+  const btnText = document.getElementById("btnText");
+  const btnSpinner = document.getElementById("btnSpinner");
+  
   submitBtn.disabled = isLoading;
   if (isLoading) {
     btnText.style.display = "none";
@@ -1031,6 +1217,10 @@ function setLoading(isLoading) {
 
 // Set analyze button loading state
 function setAnalyzeLoading(isLoading) {
+  const analyzeBtn = document.getElementById("analyzeBtn");
+  const analyzeBtnText = document.getElementById("analyzeBtnText");
+  const analyzeBtnSpinner = document.getElementById("analyzeBtnSpinner");
+  
   analyzeBtn.disabled = isLoading;
   if (isLoading) {
     analyzeBtnText.style.display = "none";
