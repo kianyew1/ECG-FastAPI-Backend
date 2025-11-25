@@ -760,7 +760,7 @@ function displayQualityAssessment(qualityData, cleanedSignalData) {
     qualityChartContainer = document.createElement("div");
     qualityChartContainer.id = "qualityChartContainer";
     qualityChartContainer.style.position = "relative";
-    qualityChartContainer.style.height = "300px";
+    qualityChartContainer.style.height = "420px";
     qualityChartContainer.style.width = "100%";
     qualityChartContainer.innerHTML = '<canvas id="qualityChart" style="position: relative !important;"></canvas>';
     
@@ -909,60 +909,79 @@ function displayQualityAssessment(qualityData, cleanedSignalData) {
   const summary = qualityData.summary;
   const windows = qualityData.windows;
   
+  // Find the best window that corresponds to the best segment
+  const bestWindow = windows.find(window => 
+    window.start_time <= bestStartTime && window.end_time >= bestEndTime
+  ) || windows.find(window => 
+    Math.abs((window.start_time + window.end_time) / 2 - (bestStartTime + bestEndTime) / 2) < 5
+  );
+  
   qualityDetailsContainer.innerHTML = `
-    <div class="quality-summary">
-      <h4>Quality Assessment Summary</h4>
-      <div class="quality-stats">
-        <div class="quality-stat">
-          <span class="quality-label">Overall Status:</span>
-          <span class="quality-value status-${summary.status.toLowerCase()}">${summary.status}</span>
-        </div>
-        <div class="quality-stat">
-          <span class="quality-label">Quality Rate:</span>
-          <span class="quality-value">${summary.good_percentage.toFixed(1)}%</span>
-        </div>
-        <div class="quality-stat">
-          <span class="quality-label">Good Windows:</span>
-          <span class="quality-value">${summary.good_windows}/${summary.total_windows}</span>
-        </div>
-        <div class="quality-stat">
-          <span class="quality-label">Best Segment:</span>
-          <span class="quality-value">${bestStartTime.toFixed(2)}s - ${bestEndTime.toFixed(2)}s</span>
+    <div class="quality-content-wrapper" style="display: flex !important; gap: 1rem; align-items: flex-start; flex-direction: row !important; border: 2px dashed #e2e8f0; padding: 1rem; background: #f9fafb;">
+      <div class="quality-summary" style="background: #f8fafc; padding: 0.75rem; border-radius: 8px; border: 1px solid #6366f1; flex: 0 0 280px; max-width: 280px; font-size: 0.875rem;">
+        <h4 style="font-size: 1rem; margin-bottom: 0.5rem; font-weight: 600;">Quality Assessment Summary</h4>
+        <div class="quality-stats">
+          <div class="quality-stat" style="display: flex; justify-content: space-between; align-items: center; padding: 0.375rem 0.5rem; margin-bottom: 0.25rem; background: white; border-radius: 4px; border: 1px solid #e2e8f0; font-size: 0.8rem;">
+            <span class="quality-label" style="font-weight: 500; color: #64748b;">Overall Status:</span>
+            <span class="quality-value status-${summary.status.toLowerCase()}" style="font-weight: 600; font-size: 0.8rem;">${summary.status}</span>
+          </div>
+          <div class="quality-stat" style="display: flex; justify-content: space-between; align-items: center; padding: 0.375rem 0.5rem; margin-bottom: 0.25rem; background: white; border-radius: 4px; border: 1px solid #e2e8f0; font-size: 0.8rem;">
+            <span class="quality-label" style="font-weight: 500; color: #64748b;">Quality Rate:</span>
+            <span class="quality-value" style="font-weight: 600; font-size: 0.8rem;">${summary.good_percentage.toFixed(1)}%</span>
+          </div>
+          <div class="quality-stat" style="display: flex; justify-content: space-between; align-items: center; padding: 0.375rem 0.5rem; margin-bottom: 0.25rem; background: white; border-radius: 4px; border: 1px solid #e2e8f0; font-size: 0.8rem;">
+            <span class="quality-label" style="font-weight: 500; color: #64748b;">Good Windows:</span>
+            <span class="quality-value" style="font-weight: 600; font-size: 0.8rem;">${summary.good_windows}/${summary.total_windows}</span>
+          </div>
+          <div class="quality-stat" style="display: flex; justify-content: space-between; align-items: center; padding: 0.375rem 0.5rem; margin-bottom: 0.25rem; background: white; border-radius: 4px; border: 1px solid #e2e8f0; font-size: 0.8rem;">
+            <span class="quality-label" style="font-weight: 500; color: #64748b;">Best Segment:</span>
+            <span class="quality-value" style="font-weight: 600; font-size: 0.8rem;">${bestStartTime.toFixed(2)}s - ${bestEndTime.toFixed(2)}s</span>
+          </div>
+          ${bestWindow ? `
+          <div class="quality-stat" style="display: flex; justify-content: space-between; align-items: center; padding: 0.375rem 0.5rem; margin-bottom: 0.25rem; background: white; border-radius: 4px; border: 1px solid #e2e8f0; font-size: 0.8rem;">
+            <span class="quality-label" style="font-weight: 500; color: #64748b;">Best Window mSQI:</span>
+            <span class="quality-value" style="font-weight: 600; font-size: 0.8rem;">${bestWindow.mSQI.toFixed(3)}</span>
+          </div>
+          <div class="quality-stat" style="display: flex; justify-content: space-between; align-items: center; padding: 0.375rem 0.5rem; margin-bottom: 0.25rem; background: white; border-radius: 4px; border: 1px solid #e2e8f0; font-size: 0.8rem;">
+            <span class="quality-label" style="font-weight: 500; color: #64748b;">Best Window kSQI:</span>
+            <span class="quality-value" style="font-weight: 600; font-size: 0.8rem;">${bestWindow.kSQI.toFixed(2)}</span>
+          </div>
+          ` : ''}
         </div>
       </div>
-    </div>
-    
-    <details class="quality-details-toggle">
-      <summary>Detailed Window Analysis (${windows.length} windows)</summary>
-      <div class="quality-table-container">
-        <table class="quality-table">
-          <thead>
-            <tr>
-              <th>Window</th>
-              <th>Time Range (s)</th>
-              <th>mSQI</th>
-              <th>kSQI</th>
-              <th>HR (bpm)</th>
-              <th>SDNN</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${windows.map(window => `
-              <tr class="quality-row status-${window.status.toLowerCase()}">
-                <td>${window.window}</td>
-                <td>${window.start_time.toFixed(1)} - ${window.end_time.toFixed(1)}</td>
-                <td>${window.mSQI.toFixed(3)}</td>
-                <td>${window.kSQI.toFixed(2)}</td>
-                <td>${window.heart_rate.toFixed(1)}</td>
-                <td>${window.sdnn.toFixed(2)}</td>
-                <td><span class="status-badge status-${window.status.toLowerCase()}">${window.status}</span></td>
+      
+      <details class="quality-details-toggle" style="flex: 1; min-width: 500px; border: 1px solid #6366f1; border-radius: 8px; padding: 1rem; background: white; margin-left: 1rem;">
+        <summary style="font-size: 1rem; font-weight: 600; cursor: pointer; padding: 0.5rem 0;">Detailed Window Analysis (${windows.length} windows)</summary>
+        <div class="quality-table-container">
+          <table class="quality-table">
+            <thead>
+              <tr>
+                <th>Window</th>
+                <th>Time Range (s)</th>
+                <th>mSQI</th>
+                <th>kSQI</th>
+                <th>HR (bpm)</th>
+                <th>SDNN</th>
+                <th>Status</th>
               </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
-    </details>
+            </thead>
+            <tbody>
+              ${windows.map(window => `
+                <tr class="quality-row status-${window.status.toLowerCase()}">
+                  <td>${window.window}</td>
+                  <td>${window.start_time.toFixed(1)} - ${window.end_time.toFixed(1)}</td>
+                  <td>${window.mSQI.toFixed(3)}</td>
+                  <td>${window.kSQI.toFixed(2)}</td>
+                  <td>${window.heart_rate.toFixed(1)}</td>
+                  <td>${window.sdnn.toFixed(2)}</td>
+                  <td><span class="status-badge status-${window.status.toLowerCase()}">${window.status}</span></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </div>
   `;
 }
 

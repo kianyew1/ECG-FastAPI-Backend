@@ -521,12 +521,27 @@ footer {
   margin-top: 1rem;
 }
 
+.quality-content-wrapper {
+  display: flex !important;
+  gap: 1rem;
+  align-items: flex-start;
+  flex-direction: row !important;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  margin: 1rem 0;
+  border: 2px dashed #e2e8f0;
+  padding: 1rem;
+  background: #f9fafb;
+}
+
 .quality-summary {
   background: #f8fafc;
   padding: 1rem;
   border-radius: 8px;
-  margin-bottom: 1rem;
   border-left: 4px solid var(--primary-color);
+  flex: 0 0 350px;
+  max-width: 350px;
+  border: 1px solid #6366f1;
 }
 
 .quality-summary h4 {
@@ -537,7 +552,7 @@ footer {
 
 .quality-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: 1fr;
   gap: 0.75rem;
 }
 
@@ -570,10 +585,13 @@ footer {
 }
 
 .quality-details-toggle {
-  border: 1px solid var(--border-color);
+  flex: 1;
+  min-width: 400px;
+  border: 1px solid #6366f1;
   border-radius: 8px;
   padding: 1rem;
   background: white;
+  margin-left: 1rem;
 }
 
 .quality-details-toggle summary {
@@ -607,17 +625,20 @@ footer {
   overflow-x: auto;
   border-radius: 8px;
   border: 1px solid var(--border-color);
+  background: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .quality-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.9rem;
+  margin: 0;
 }
 
 .quality-table th,
 .quality-table td {
-  padding: 0.75rem;
+  padding: 0.5rem 0.75rem;
   text-align: left;
   border-bottom: 1px solid var(--border-color);
 }
@@ -626,10 +647,16 @@ footer {
   background: #f8fafc;
   font-weight: 600;
   color: var(--text-primary);
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
-.quality-table tbody tr:hover {
-  background: #f8fafc;
+.quality-table tbody tr:last-child td {
+  border-bottom: none;
 }
 
 .quality-row.status-good {
@@ -654,6 +681,7 @@ footer {
   font-size: 0.8rem;
   font-weight: 600;
   text-transform: uppercase;
+  display: inline-block;
 }
 
 .status-badge.status-good {
@@ -674,6 +702,21 @@ footer {
 .status-badge.status-rejected {
   background: rgba(239, 68, 68, 0.2);
   color: #b91c1c;
+}
+
+@media (max-width: 1024px) {
+  .quality-content-wrapper {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .quality-summary {
+    min-width: unset;
+  }
+  
+  .quality-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 @media (max-width: 768px) {
