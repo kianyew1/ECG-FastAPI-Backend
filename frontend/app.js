@@ -764,9 +764,9 @@ function displayQualityAssessment(qualityData, cleanedSignalData) {
     qualityChartContainer.style.width = "100%";
     qualityChartContainer.innerHTML = '<canvas id="qualityChart" style="position: relative !important;"></canvas>';
     
-    // Insert after the h3 in qualityCard
-    const h3 = qualityCard.querySelector("h3");
-    h3.insertAdjacentElement("afterend", qualityChartContainer);
+    // Insert into the quality-card-content container
+    const qualityContent = qualityCard.querySelector(".quality-card-content");
+    qualityContent.appendChild(qualityChartContainer);
   }
   
   // Prepare signal data for chart
