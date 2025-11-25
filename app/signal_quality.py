@@ -131,7 +131,7 @@ def analyze_sliding_windows(ecg_cleaned: np.ndarray, r_peaks: np.ndarray,
             window_results.append(metrics)
             
             # Check if this window should be rejected
-            if metrics['status'] in ['REJECTED', 'UNRELIABLE']:
+            if metrics['status'] in ['REJECTED', 'UNRELIABLE', 'REJECTED (External Artifact)']:
                 bad_segments.append([start_idx, end_idx])
                 
         except Exception as e:
@@ -156,8 +156,7 @@ def analyze_sliding_windows(ecg_cleaned: np.ndarray, r_peaks: np.ndarray,
     results_df_sorted = results_df.sort_values('mSQI', ascending=False)
     
     # Find best segment (highest quality that's not rejected)
-    good_windows = results_df_sorted[results_df_sorted['status'] == 'GOOD']
-    
+    good_windows = results_df_sorted[results_df_sorted['status'].isin(['GOOD', 'GOOD (Baseline Wander)'])]
     if len(good_windows) > 0:
         best_window = good_windows.iloc[0]
         best_segment_indices = [int(best_window['start_idx']), int(best_window['end_idx'])]
@@ -172,7 +171,8 @@ def analyze_sliding_windows(ecg_cleaned: np.ndarray, r_peaks: np.ndarray,
     
     # Summary statistics
     total_windows = len(window_results)
-    good_count = len(results_df[results_df['status'] == 'GOOD'])
+    #good_count should include also 'GOOD (Baseline Wander)'
+    good_count = len(results_df[results_df['status'].isin(['GOOD', 'GOOD (Baseline Wander)'])])
     rejected_count = len(results_df[results_df['status'] == 'REJECTED'])
     unreliable_count = len(results_df[results_df['status'] == 'UNRELIABLE'])
     
@@ -191,7 +191,7 @@ def analyze_sliding_windows(ecg_cleaned: np.ndarray, r_peaks: np.ndarray,
     return {
         'best_segment_indices': best_segment_indices,
         'bad_segments': bad_segments,
-        'results_df': results_df_sorted,
+        'results_df': results_df,
         'summary': summary
     }
 
@@ -280,40 +280,41 @@ def calculate_window_metrics(segment: np.ndarray, relative_peaks: np.ndarray,
         metrics['hr_bpm'] = 0.0
         metrics['sdnn_ms'] = 0.0
     
-    # D. Classification Logic with "Thought Process" Logging
+# D. Classification Logic with "Thought Process" Logging
     
-    # External Factor (Artifact): kSQI < 3.0 (signal too "random" or "flat")
+    # 1. REJECTION TIER: Fundamental Signal Failure
+    # External Factor (Artifact): kSQI < 3.0 (signal is white noise/random/flat)
     if kSQI < 3.0:
-        status = "REJECTED (External Artifact detected)"
-        metrics['status'] = 'REJECTED'
-    
-    # Unreliable: mSQI < 0.5 (beats don't look like heartbeats)
+        metrics['status'] = 'REJECTED (External Artifact)'
+        
+    # Unreliable: mSQI < 0.5 (beats do not look like heartbeats/extreme arrhythmia)
     elif mSQI < 0.5:
-        status = "UNRELIABLE"  
         metrics['status'] = 'UNRELIABLE'
-    
-    # Good: kSQI > 5.0 AND mSQI > 0.8
+
+    # 2. GOOD TIER: High Peakedness + High Consistency
+    # This is the Gold Standard.
     elif kSQI > 5.0 and mSQI > 0.8:
-        status = "GOOD"
         metrics['status'] = 'GOOD'
 
-    elif mSQI > 0.8 and kSQI < 4.0:
-        # This is characteristic of Baseline Wander (Stepping artifact)
-        status = "ACCEPTABLE (Baseline Wander detected)"
-        metrics['status'] = 'GOOD' # Still usable
-        # Optional: Apply a small penalty to sorting if you strictly want the flattest baseline
-    
-    # In-between cases
+    # 3. GOOD TIER: High Consistency + Moderate Peakedness (Baseline Wander)
+    # mSQI > 0.8 implies the QRS shape is great. 
+    # The lower kSQI (implied < 5.0 here because it failed the previous check) 
+    # suggests the baseline is "wandering" (running motion), making the distribution flatter.
+    elif mSQI > 0.8:
+        metrics['status'] = 'GOOD (Baseline Wander)'
+
+    # 4. ADEQUATE TIER: Moderate Consistency
+    # This catches the gap you noticed (0.5 <= mSQI <= 0.8).
+    # These are usable for Heart Rate, but maybe not for fine morphology.
+    elif mSQI >= 0.5:
+        metrics['status'] = 'ADEQUATE'
+
+    # 5. Fallback (Should be mathematically impossible to reach given above logic, but safe to keep)
     else:
-        if mSQI >= 0.5 and kSQI >= 3.0:
-            status = "GOOD"
-            metrics['status'] = 'GOOD'
-        else:
-            status = "UNRELIABLE"
-            metrics['status'] = 'UNRELIABLE'
+        metrics['status'] = 'UNRELIABLE'
     
     # Print decision process
-    print(f"   {window_number:3d}    | {mSQI:13.3f}  | {kSQI:7.2f}  | {metrics['hr_bpm']:5.0f}  | {metrics['sdnn_ms']:4.0f} | {status}")
+    print(f"   {window_number:3d}    | {mSQI:13.3f}  | {kSQI:7.2f}  | {metrics['hr_bpm']:5.0f}  | {metrics['sdnn_ms']:4.0f} | {metrics['status']}")
     
     return metrics
 

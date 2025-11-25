@@ -112,7 +112,7 @@ uploadForm.addEventListener("submit", async (e) => {
     }
 
     previewData = await response.json();
-
+    console.log("Preview Data:", previewData);
     // Setup timeframe selection
     setupTimeframeSelection();
   } catch (error) {
@@ -331,6 +331,17 @@ async function loadChannelPreview(channel) {
         },
       },
     });
+
+    // Display quality assessment if available
+    if (channelData.quality_assessment) {
+      displayQualityAssessment(channelData.quality_assessment, channelData.cleaned_signal);
+    } else {
+      // Hide quality card if no assessment data
+      const qualityCard = document.getElementById("qualityCard");
+      if (qualityCard) {
+        qualityCard.style.display = "none";
+      }
+    }
   } catch (error) {
     console.error("Error loading channel preview:", error);
     showError(`Failed to load preview for ${channel}: ${error.message}`);
@@ -486,6 +497,12 @@ newAnalysisBtn.addEventListener("click", () => {
   resultsSection.style.display = "none";
   timeframeSection.style.display = "none";
   previewCard.style.display = "none";
+
+  // Hide quality card and destroy quality chart
+  const qualityCard = document.getElementById("qualityCard");
+  if (qualityCard) {
+    qualityCard.style.display = "none";
+  }
 
   // Reset state
   currentFile = null;
@@ -723,6 +740,230 @@ function downsample(xData, yData, maxPoints) {
   }
 
   return { x: downsampledX, y: downsampledY };
+}
+
+// Display quality assessment function
+function displayQualityAssessment(qualityData, cleanedSignalData) {
+  const qualityCard = document.getElementById("qualityCard");
+  
+  // Show quality card
+  qualityCard.style.display = "block";
+  
+  // Destroy existing quality chart
+  if (charts.quality) {
+    charts.quality.destroy();
+  }
+  
+  // Create quality chart canvas if it doesn't exist
+  let qualityChartContainer = document.getElementById("qualityChartContainer");
+  if (!qualityChartContainer) {
+    qualityChartContainer = document.createElement("div");
+    qualityChartContainer.id = "qualityChartContainer";
+    qualityChartContainer.style.position = "relative";
+    qualityChartContainer.style.height = "300px";
+    qualityChartContainer.style.width = "100%";
+    qualityChartContainer.innerHTML = '<canvas id="qualityChart" style="position: relative !important;"></canvas>';
+    
+    // Insert after the h3 in qualityCard
+    const h3 = qualityCard.querySelector("h3");
+    h3.insertAdjacentElement("afterend", qualityChartContainer);
+  }
+  
+  // Prepare signal data for chart
+  const maxPoints = 2000;
+  const signalData = downsample(
+    cleanedSignalData.time,
+    cleanedSignalData.values,
+    maxPoints
+  );
+  
+  // Create annotations for quality segments
+  const annotations = {};
+  
+  // Add best segment highlighting (green)
+  const bestStartTime = qualityData.best_segment_times[0];
+  const bestEndTime = qualityData.best_segment_times[1];
+  
+  annotations.bestSegment = {
+    type: "box",
+    xMin: bestStartTime,
+    xMax: bestEndTime,
+    backgroundColor: "rgba(34, 197, 94, 0.4)",
+    borderColor: "rgba(34, 197, 94, 0.8)",
+    borderWidth: 3,
+    label: {
+      display: true,
+      content: "Best Quality Segment",
+      position: "start",
+      backgroundColor: "rgba(34, 197, 94, 0.9)",
+      color: "black",
+      font: {
+        weight: "bold",
+        size: 10,
+      },
+      padding: 4,
+    },
+  };
+  
+  // Add bad segments (red shading)
+  qualityData.bad_segment_times.forEach((badSegment, index) => {
+    annotations[`badSegment${index}`] = {
+      type: "box",
+      xMin: badSegment[0],
+      xMax: badSegment[1],
+      backgroundColor: "rgba(239, 68, 68, 0.05)",
+      borderColor: "rgba(239, 68, 68, 0.4)",
+      borderWidth: 1,
+      label: {
+        display: index === 0, // Only show label on first bad segment
+        content: "Poor Quality",
+        position: "start",
+        backgroundColor: "rgba(239, 68, 68, 0.9)",
+        color: "black",
+        font: {
+          weight: "bold",
+          size: 10,
+        },
+        padding: 4,
+      },
+    };
+  });
+  
+  // Create quality chart
+  const qualityCtx = document.getElementById("qualityChart");
+  charts.quality = new Chart(qualityCtx, {
+    type: "line",
+    data: {
+      labels: signalData.x,
+      datasets: [
+        {
+          label: "Cleaned ECG Signal (Quality Assessment)",
+          data: signalData.y,
+          borderColor: "#6366f1",
+          borderWidth: 1,
+          pointRadius: 0,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        intersect: false,
+        mode: 'index'
+      },
+      hover: {
+        intersect: false,
+        animationDuration: 0
+      },
+      animation: false,
+      plugins: {
+        legend: {
+          display: true,
+          onClick: function() {
+            // Disable legend click behavior to prevent dataset toggling
+            return false;
+          },
+          onHover: function() {
+            // Disable legend hover effects
+            return false;
+          },
+          labels: {
+            usePointStyle: false,
+            boxWidth: 12,
+            color: '#374151'
+          }
+        },
+        annotation: {
+          annotations: annotations,
+        },
+      },
+      scales: {
+        x: {
+          title: {
+            display: true,
+            text: "Time (seconds)",
+          },
+          type: "linear",
+        },
+        y: {
+          title: {
+            display: true,
+            text: "Amplitude (mV)",
+          },
+        },
+      }
+    },
+  });
+  
+  // Create or update quality summary table
+  let qualityDetailsContainer = document.getElementById("qualityDetailsContainer");
+  if (!qualityDetailsContainer) {
+    qualityDetailsContainer = document.createElement("div");
+    qualityDetailsContainer.id = "qualityDetailsContainer";
+    qualityDetailsContainer.className = "quality-details";
+    qualityChartContainer.insertAdjacentElement("afterend", qualityDetailsContainer);
+  }
+  
+  // Create quality summary and details
+  const summary = qualityData.summary;
+  const windows = qualityData.windows;
+  
+  qualityDetailsContainer.innerHTML = `
+    <div class="quality-summary">
+      <h4>Quality Assessment Summary</h4>
+      <div class="quality-stats">
+        <div class="quality-stat">
+          <span class="quality-label">Overall Status:</span>
+          <span class="quality-value status-${summary.status.toLowerCase()}">${summary.status}</span>
+        </div>
+        <div class="quality-stat">
+          <span class="quality-label">Quality Rate:</span>
+          <span class="quality-value">${summary.good_percentage.toFixed(1)}%</span>
+        </div>
+        <div class="quality-stat">
+          <span class="quality-label">Good Windows:</span>
+          <span class="quality-value">${summary.good_windows}/${summary.total_windows}</span>
+        </div>
+        <div class="quality-stat">
+          <span class="quality-label">Best Segment:</span>
+          <span class="quality-value">${bestStartTime.toFixed(2)}s - ${bestEndTime.toFixed(2)}s</span>
+        </div>
+      </div>
+    </div>
+    
+    <details class="quality-details-toggle">
+      <summary>Detailed Window Analysis (${windows.length} windows)</summary>
+      <div class="quality-table-container">
+        <table class="quality-table">
+          <thead>
+            <tr>
+              <th>Window</th>
+              <th>Time Range (s)</th>
+              <th>mSQI</th>
+              <th>kSQI</th>
+              <th>HR (bpm)</th>
+              <th>SDNN</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${windows.map(window => `
+              <tr class="quality-row status-${window.status.toLowerCase()}">
+                <td>${window.window}</td>
+                <td>${window.start_time.toFixed(1)} - ${window.end_time.toFixed(1)}</td>
+                <td>${window.mSQI.toFixed(3)}</td>
+                <td>${window.kSQI.toFixed(2)}</td>
+                <td>${window.heart_rate.toFixed(1)}</td>
+                <td>${window.sdnn.toFixed(2)}</td>
+                <td><span class="status-badge status-${window.status.toLowerCase()}">${window.status}</span></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  `;
 }
 
 // Destroy all charts

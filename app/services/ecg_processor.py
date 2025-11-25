@@ -7,7 +7,8 @@ from typing import Tuple, Dict, List, Optional
 import numpy as np
 import pandas as pd
 import neurokit2 as nk
-from ..models.ecg_models import ECGMetadata, ECGStatistics, SignalData
+from ..models.ecg_models import ECGMetadata, ECGStatistics, SignalData, QualityAssessment, QualitySummary, QualityWindow
+from ..signal_quality import assess_ecg_quality
 
 
 class ECGProcessor:
@@ -196,5 +197,74 @@ class ECGProcessor:
             
             result['r_peak_times'] = time_array[r_peaks].tolist()
             result['r_peak_amplitudes'] = signals['ECG_Clean'].iloc[r_peaks].tolist()
+            
+            # Add signal quality assessment
+            try:
+                ecg_cleaned = signals['ECG_Clean'].values
+                quality_result = assess_ecg_quality(ecg_cleaned, self.sampling_rate)
+                
+                # Convert DataFrame rows to QualityWindow objects
+                quality_windows = []
+                for _, row in quality_result['results_df'].iterrows():
+                    quality_window = QualityWindow(
+                        window=int(row['window']),
+                        start_time=float(row['start_time']),
+                        end_time=float(row['end_time']),
+                        start_idx=int(row['start_idx']),
+                        end_idx=int(row['end_idx']),
+                        mSQI=float(row['mSQI']),
+                        kSQI=float(row['kSQI']),
+                        heart_rate=float(row['hr_bpm']),  # Use hr_bpm field
+                        sdnn=float(row['sdnn_ms']),       # Use sdnn_ms field
+                        status=str(row['status'])
+                    )
+                    quality_windows.append(quality_window)
+                
+                # Create summary
+                summary_data = quality_result['summary']
+                print("quality_summary:", summary_data)
+                print("quality_results_df:", quality_result['results_df'])
+                # Count acceptable windows (baseline wander cases)
+                acceptable_count = len(quality_result['results_df'][
+                    (quality_result['results_df']['status'] == 'GOOD') &
+                    (quality_result['results_df']['mSQI'] > 0.8) &
+                    (quality_result['results_df']['kSQI'] < 4.0)
+                ])
+                
+                quality_summary = QualitySummary(
+                    total_windows=int(summary_data['total_windows']),
+                    good_windows=int(summary_data['good_windows']),
+                    rejected_windows=int(summary_data['rejected_windows']),
+                    unreliable_windows=int(summary_data['unreliable_windows']),
+                    acceptable_windows=acceptable_count,
+                    good_percentage=float(summary_data['good_percentage']),
+                    status=str(summary_data['status'])
+                )
+                
+                # Convert indices to times for frontend
+                best_start_time = quality_result['best_segment_indices'][0] / self.sampling_rate
+                best_end_time = quality_result['best_segment_indices'][1] / self.sampling_rate
+                
+                bad_segment_times = []
+                for bad_segment in quality_result['bad_segments']:
+                    bad_start_time = bad_segment[0] / self.sampling_rate
+                    bad_end_time = bad_segment[1] / self.sampling_rate
+                    bad_segment_times.append([bad_start_time, bad_end_time])
+                
+                # Create quality assessment object
+                quality_assessment = QualityAssessment(
+                    best_segment_indices=quality_result['best_segment_indices'],
+                    best_segment_times=[best_start_time, best_end_time],
+                    bad_segments=quality_result['bad_segments'],
+                    bad_segment_times=bad_segment_times,
+                    windows=quality_windows,
+                    summary=quality_summary
+                )
+                
+                result['quality_assessment'] = quality_assessment
+                
+            except Exception as e:
+                print(f"Warning: Signal quality assessment failed: {e}")
+                # Continue without quality assessment
         
         return result
