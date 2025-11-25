@@ -554,7 +554,7 @@ function displayResults(data, includeSignals) {
   // Handle charts if signals are included
   if (includeSignals && data.raw_signal) {
     chartsSection.style.display = "block";
-    destroyCharts(); // Clear any existing charts
+    destroyResultCharts(); // Clear any existing result charts but preserve preview/quality
     createCharts(data);
   } else {
     chartsSection.style.display = "none";
@@ -993,6 +993,16 @@ function destroyCharts() {
     }
   });
   charts = {};
+}
+
+// Destroy only result charts (preserve preview and quality charts)
+function destroyResultCharts() {
+  ['raw', 'cleaned', 'heartRate', 'rPeaks'].forEach((chartKey) => {
+    if (charts[chartKey]) {
+      charts[chartKey].destroy();
+      delete charts[chartKey];
+    }
+  });
 }
 
 // Show error message
