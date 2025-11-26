@@ -8,7 +8,7 @@ const errorMessage = document.getElementById("errorMessage");
 const resultsSection = document.getElementById("resultsSection");
 const timeframeSection = document.getElementById("timeframeSection");
 const channelSelect = document.getElementById("channelSelect");
-const previewCard = document.getElementById("previewCard");
+// const previewCard = document.getElementById("previewCard"); // Removed
 const startTimeSlider = document.getElementById("startTimeSlider");
 const endTimeSlider = document.getElementById("endTimeSlider");
 const analyzeBtn = document.getElementById("analyzeBtn");
@@ -143,7 +143,9 @@ function setupTimeframeSelection() {
 
   // Show timeframe section
   document.getElementById("timeframeSection").style.display = "block";
-  document.getElementById("timeframeSection").scrollIntoView({ behavior: "smooth", block: "start" });
+  document
+    .getElementById("timeframeSection")
+    .scrollIntoView({ behavior: "smooth", block: "start" });
 
   // Auto-load preview for the first available channel
   if (channelSelect.value) {
@@ -156,7 +158,7 @@ channelSelect.addEventListener("change", (e) => {
   if (e.target.value) {
     loadChannelPreview(e.target.value);
   } else {
-    previewCard.style.display = "none";
+    document.getElementById("qualityCard").style.display = "none";
   }
 });
 
@@ -164,17 +166,32 @@ channelSelect.addEventListener("change", (e) => {
 async function loadChannelPreview(channel) {
   if (!currentFile) return;
 
-  // Show loading state on preview card
-  document.getElementById("previewCard").style.display = "block";
+  // Show loading state on quality card
+  const qualityCard = document.getElementById("qualityCard");
+  qualityCard.style.display = "block";
 
-  // Add a loading indicator
-  const previewChart = document.getElementById("previewChart");
+  // Add a loading indicator to quality chart container
+  const qualityChartContainer = document.getElementById(
+    "qualityChartContainer"
+  );
+  qualityChartContainer.style.display = "block";
+
+  // Clear previous chart if exists
+  if (charts.quality) {
+    charts.quality.destroy();
+    charts.quality = null;
+  }
+
+  // Remove any existing loading div
+  const existingLoading = document.getElementById("previewLoading");
+  if (existingLoading) existingLoading.remove();
+
   const loadingDiv = document.createElement("div");
   loadingDiv.id = "previewLoading";
   loadingDiv.className = "loading-overlay";
   loadingDiv.innerHTML =
-    '<div class="spinner"></div><p>Loading channel preview...</p>';
-  previewChart.parentElement.insertBefore(loadingDiv, previewChart);
+    '<div class="spinner"></div><p>Loading channel quality check...</p>';
+  qualityChartContainer.appendChild(loadingDiv);
 
   try {
     // Fetch preview data for this specific channel
@@ -199,146 +216,25 @@ async function loadChannelPreview(channel) {
     const channelData = await response.json();
 
     // Remove loading indicator
-    const loading = document.getElementById("previewLoading");
-    if (loading) loading.remove();
-
-    // Destroy existing preview chart
-    if (charts.preview) {
-      charts.preview.destroy();
-    }
-
-    // Create preview chart with annotations - using CLEANED signal
-    const ctx = document.getElementById("previewChart");
-    const maxPoints = 2000;
-    const signalData = downsample(
-      channelData.cleaned_signal.time,
-      channelData.cleaned_signal.values,
-      maxPoints
-    );
-
-    const startTime = parseFloat(startTimeSlider.value);
-    const endTime = parseFloat(endTimeSlider.value);
-
-    charts.preview = new Chart(ctx, {
-      type: "line",
-      data: {
-        labels: signalData.x,
-        datasets: [
-          {
-            label: `${channel} - Cleaned Signal`,
-            data: signalData.y,
-            borderColor: "#10b981",
-            borderWidth: 1.5,
-            pointRadius: 0,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: true,
-        aspectRatio: 3,
-        plugins: {
-          legend: {
-            display: true,
-          },
-          annotation: {
-            annotations: {
-              selectionBox: {
-                type: "box",
-                xMin: startTime,
-                xMax: endTime,
-                backgroundColor: "rgba(16, 185, 129, 0.15)",
-                borderColor: "rgba(16, 185, 129, 0.5)",
-                borderWidth: 2,
-                label: {
-                  display: true,
-                  content: "Selected for Analysis",
-                  position: "center",
-                  color: "#059669",
-                  font: {
-                    weight: "bold",
-                    size: 12,
-                  },
-                },
-              },
-              startLine: {
-                type: "line",
-                xMin: startTime,
-                xMax: startTime,
-                borderColor: "#10b981",
-                borderWidth: 3,
-                borderDash: [5, 5],
-                label: {
-                  display: true,
-                  content: `Start: ${startTime.toFixed(2)}s`,
-                  position: "start",
-                  backgroundColor: "#10b981",
-                  color: "white",
-                  font: {
-                    weight: "bold",
-                    size: 11,
-                  },
-                  padding: 4,
-                },
-              },
-              endLine: {
-                type: "line",
-                xMin: endTime,
-                xMax: endTime,
-                borderColor: "#ef4444",
-                borderWidth: 3,
-                borderDash: [5, 5],
-                label: {
-                  display: true,
-                  content: `End: ${endTime.toFixed(2)}s`,
-                  position: "end",
-                  backgroundColor: "#ef4444",
-                  color: "white",
-                  font: {
-                    weight: "bold",
-                    size: 11,
-                  },
-                  padding: 4,
-                },
-              },
-            },
-          },
-        },
-        scales: {
-          x: {
-            title: {
-              display: true,
-              text: "Time (seconds)",
-            },
-            type: "linear",
-          },
-          y: {
-            title: {
-              display: true,
-              text: "Amplitude (mV)",
-            },
-          },
-        },
-      },
-    });
+    if (loadingDiv) loadingDiv.remove();
 
     // Display quality assessment if available
     if (channelData.quality_assessment) {
-      displayQualityAssessment(channelData.quality_assessment, channelData.cleaned_signal);
+      displayQualityAssessment(
+        channelData.quality_assessment,
+        channelData.cleaned_signal
+      );
     } else {
-      // Hide quality card if no assessment data
-      const qualityCard = document.getElementById("qualityCard");
-      if (qualityCard) {
-        qualityCard.style.display = "none";
-      }
+      // Handle case where no quality assessment is returned but we have signal
+      console.warn("No quality assessment data returned");
+      qualityCard.style.display = "none";
     }
   } catch (error) {
     console.error("Error loading channel preview:", error);
     showError(`Failed to load preview for ${channel}: ${error.message}`);
 
     // Remove loading indicator
-    const loading = document.getElementById("previewLoading");
-    if (loading) loading.remove();
+    if (loadingDiv) loadingDiv.remove();
   }
 }
 
@@ -352,9 +248,11 @@ startTimeSlider.addEventListener("input", (e) => {
     e.target.value = Math.max(0, endTime - 0.1);
   }
 
-  document.getElementById("startTimeValue").textContent = parseFloat(e.target.value).toFixed(2);
+  document.getElementById("startTimeValue").textContent = parseFloat(
+    e.target.value
+  ).toFixed(2);
   updateSelectedDuration();
-  updatePreviewAnnotations();
+  updateQualityAnnotations();
 });
 
 endTimeSlider.addEventListener("input", (e) => {
@@ -366,9 +264,11 @@ endTimeSlider.addEventListener("input", (e) => {
     e.target.value = Math.min(maxDuration, startTime + 0.1);
   }
 
-  document.getElementById("endTimeValue").textContent = parseFloat(e.target.value).toFixed(2);
+  document.getElementById("endTimeValue").textContent = parseFloat(
+    e.target.value
+  ).toFixed(2);
   updateSelectedDuration();
-  updatePreviewAnnotations();
+  updateQualityAnnotations();
 });
 
 // Update selected duration display
@@ -385,34 +285,41 @@ function updateSelectedDuration() {
   const samples = Math.round(duration * currentSamplingRate);
 
   document.getElementById("selectedDuration").textContent = duration.toFixed(2);
-  document.getElementById("selectedSamples").textContent = samples.toLocaleString();
+  document.getElementById("selectedSamples").textContent =
+    samples.toLocaleString();
 }
 
-// Update preview chart annotations
-function updatePreviewAnnotations() {
-  if (!charts.preview || !charts.preview.options.plugins.annotation) return;
+// Update quality chart annotations
+function updateQualityAnnotations() {
+  if (!charts.quality || !charts.quality.options.plugins.annotation) return;
 
   const startTime = parseFloat(startTimeSlider.value);
   const endTime = parseFloat(endTimeSlider.value);
 
-  const annotations = charts.preview.options.plugins.annotation.annotations;
+  const annotations = charts.quality.options.plugins.annotation.annotations;
 
   // Update selection box
-  annotations.selectionBox.xMin = startTime;
-  annotations.selectionBox.xMax = endTime;
+  if (annotations.selectionBox) {
+    annotations.selectionBox.xMin = startTime;
+    annotations.selectionBox.xMax = endTime;
+  }
 
   // Update start line
-  annotations.startLine.xMin = startTime;
-  annotations.startLine.xMax = startTime;
-  annotations.startLine.label.content = `Start: ${startTime.toFixed(2)}s`;
+  if (annotations.startLine) {
+    annotations.startLine.xMin = startTime;
+    annotations.startLine.xMax = startTime;
+    annotations.startLine.label.content = `Start: ${startTime.toFixed(2)}s`;
+  }
 
   // Update end line
-  annotations.endLine.xMin = endTime;
-  annotations.endLine.xMax = endTime;
-  annotations.endLine.label.content = `End: ${endTime.toFixed(2)}s`;
+  if (annotations.endLine) {
+    annotations.endLine.xMin = endTime;
+    annotations.endLine.xMax = endTime;
+    annotations.endLine.label.content = `End: ${endTime.toFixed(2)}s`;
+  }
 
   // Update chart with animation disabled for smooth dragging
-  charts.preview.update("none");
+  charts.quality.update("none");
 }
 
 // Analyze button handler
@@ -486,7 +393,7 @@ document.getElementById("newAnalysisBtn").addEventListener("click", () => {
   // Hide sections
   document.getElementById("resultsSection").style.display = "none";
   document.getElementById("timeframeSection").style.display = "none";
-  document.getElementById("previewCard").style.display = "none";
+  // document.getElementById("previewCard").style.display = "none"; // Removed
 
   // Hide quality card and destroy quality chart
   const qualityCard = document.getElementById("qualityCard");
@@ -551,7 +458,9 @@ function displayResults(data, includeSignals) {
   }
 
   // Scroll to results
-  document.getElementById("resultsSection").scrollIntoView({ behavior: "smooth", block: "start" });
+  document
+    .getElementById("resultsSection")
+    .scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 // Create charts function
@@ -735,186 +644,33 @@ function downsample(xData, yData, maxPoints) {
 // Display quality assessment function
 function displayQualityAssessment(qualityData, cleanedSignalData) {
   const qualityCard = document.getElementById("qualityCard");
-  
+
   // Show quality card
   qualityCard.style.display = "block";
-  
+
   // Destroy existing quality chart
   if (charts.quality) {
     charts.quality.destroy();
   }
-  
+
   // Setup and show chart container (already exists in HTML)
-  const qualityChartContainer = document.getElementById("qualityChartContainer");
-  qualityChartContainer.style.display = "block";
-  
-  // Show quality details container
-  const qualityDetailsContainer = document.getElementById("qualityDetailsContainer");
-  qualityDetailsContainer.style.display = "block";
-  
-  // Create quality chart
-  createQualityChart(qualityData, cleanedSignalData);
-  
-  // Populate quality summary
-  populateQualitySummary(qualityData);
-  
-  // Populate quality table
-  populateQualityTable(qualityData);
-}
-  
-  // Prepare signal data for chart
-  const maxPoints = 2000;
-  const signalData = downsample(
-    cleanedSignalData.time,
-    cleanedSignalData.values,
-    maxPoints
+  const qualityChartContainer = document.getElementById(
+    "qualityChartContainer"
   );
-  
-  // Create annotations for quality segments
-  const annotations = {};
-  
-  // Add best segment highlighting (green)
-  const bestStartTime = qualityData.best_segment_times[0];
-  const bestEndTime = qualityData.best_segment_times[1];
-  
-  annotations.bestSegment = {
-    type: "box",
-    xMin: bestStartTime,
-    xMax: bestEndTime,
-    backgroundColor: "rgba(34, 197, 94, 0.4)",
-    borderColor: "rgba(34, 197, 94, 0.8)",
-    borderWidth: 3,
-    label: {
-      display: true,
-      content: "Best Quality Segment",
-      position: "start",
-      backgroundColor: "rgba(34, 197, 94, 0.9)",
-      color: "black",
-      font: {
-        weight: "bold",
-        size: 10,
-      },
-      padding: 4,
-    },
-  };
-  
-  // Add bad segments (red shading)
-  qualityData.bad_segment_times.forEach((badSegment, index) => {
-    annotations[`badSegment${index}`] = {
-      type: "box",
-      xMin: badSegment[0],
-      xMax: badSegment[1],
-      backgroundColor: "rgba(239, 68, 68, 0.05)",
-      borderColor: "rgba(239, 68, 68, 0.4)",
-      borderWidth: 1,
-      label: {
-        display: index === 0, // Only show label on first bad segment
-        content: "Poor Quality",
-        position: "start",
-        backgroundColor: "rgba(239, 68, 68, 0.9)",
-        color: "black",
-        font: {
-          weight: "bold",
-          size: 10,
-        },
-        padding: 4,
-      },
-    };
-  });
-  
-  // Create quality chart
-  const qualityCtx = document.getElementById("qualityChart");
-  charts.quality = new Chart(qualityCtx, {
-    type: "line",
-    data: {
-      labels: signalData.x,
-      datasets: [
-        {
-          label: "Cleaned ECG Signal (Quality Assessment)",
-          data: signalData.y,
-          borderColor: "#6366f1",
-          borderWidth: 1,
-          pointRadius: 0,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: {
-        intersect: false,
-        mode: 'index'
-      },
-      hover: {
-        intersect: false,
-        animationDuration: 0
-      },
-      animation: false,
-      plugins: {
-        legend: {
-          display: true,
-          onClick: function() {
-            // Disable legend click behavior to prevent dataset toggling
-            return false;
-          },
-          onHover: function() {
-            // Disable legend hover effects
-            return false;
-          },
-          labels: {
-            usePointStyle: false,
-            boxWidth: 12,
-            color: '#374151'
-          }
-        },
-        annotation: {
-          annotations: annotations,
-        },
-      },
-      scales: {
-        x: {
-          title: {
-            display: true,
-            text: "Time (seconds)",
-          },
-          type: "linear",
-        },
-        y: {
-          title: {
-            display: true,
-            text: "Amplitude (mV)",
-          },
-        },
-      }
-    },
-  });
-  
-// Display quality assessment function
-function displayQualityAssessment(qualityData, cleanedSignalData) {
-  const qualityCard = document.getElementById("qualityCard");
-  
-  // Show quality card
-  qualityCard.style.display = "block";
-  
-  // Destroy existing quality chart
-  if (charts.quality) {
-    charts.quality.destroy();
-  }
-  
-  // Setup and show chart container
-  const qualityChartContainer = document.getElementById("qualityChartContainer");
   qualityChartContainer.style.display = "block";
-  
+
   // Show quality details container
-  const qualityDetailsContainer = document.getElementById("qualityDetailsContainer");
+  const qualityDetailsContainer = document.getElementById(
+    "qualityDetailsContainer"
+  );
   qualityDetailsContainer.style.display = "block";
-  
+
   // Create quality chart
   createQualityChart(qualityData, cleanedSignalData);
-  
+
   // Populate quality summary
   populateQualitySummary(qualityData);
-  
+
   // Populate quality table
   populateQualityTable(qualityData);
 }
@@ -928,14 +684,14 @@ function createQualityChart(qualityData, cleanedSignalData) {
     cleanedSignalData.values,
     maxPoints
   );
-  
+
   // Create annotations for quality segments
   const annotations = {};
-  
+
   // Add best segment highlighting (green)
   const bestStartTime = qualityData.best_segment_times[0];
   const bestEndTime = qualityData.best_segment_times[1];
-  
+
   annotations.bestSegment = {
     type: "box",
     xMin: bestStartTime,
@@ -956,7 +712,72 @@ function createQualityChart(qualityData, cleanedSignalData) {
       padding: 4,
     },
   };
-  
+
+  // Add selection annotations
+  const startTime = parseFloat(startTimeSlider.value);
+  const endTime = parseFloat(endTimeSlider.value);
+
+  annotations.selectionBox = {
+    type: "box",
+    xMin: startTime,
+    xMax: endTime,
+    backgroundColor: "rgba(16, 185, 129, 0.15)",
+    borderColor: "rgba(16, 185, 129, 0.5)",
+    borderWidth: 2,
+    label: {
+      display: true,
+      content: "Selected for Analysis",
+      position: "center",
+      color: "#059669",
+      font: {
+        weight: "bold",
+        size: 12,
+      },
+    },
+  };
+
+  annotations.startLine = {
+    type: "line",
+    xMin: startTime,
+    xMax: startTime,
+    borderColor: "#10b981",
+    borderWidth: 3,
+    borderDash: [5, 5],
+    label: {
+      display: true,
+      content: `Start: ${startTime.toFixed(2)}s`,
+      position: "start",
+      backgroundColor: "#10b981",
+      color: "white",
+      font: {
+        weight: "bold",
+        size: 11,
+      },
+      padding: 4,
+    },
+  };
+
+  annotations.endLine = {
+    type: "line",
+    xMin: endTime,
+    xMax: endTime,
+    borderColor: "#ef4444",
+    borderWidth: 3,
+    borderDash: [5, 5],
+    label: {
+      display: true,
+      content: `End: ${endTime.toFixed(2)}s`,
+      position: "end",
+      backgroundColor: "#ef4444",
+      color: "white",
+      font: {
+        weight: "bold",
+        size: 11,
+      },
+      padding: 4,
+    },
+  };
+
   // Add bad segments (red shading)
   qualityData.bad_segment_times.forEach((badSegment, index) => {
     annotations[`badSegment${index}`] = {
@@ -980,7 +801,7 @@ function createQualityChart(qualityData, cleanedSignalData) {
       },
     };
   });
-  
+
   // Create quality chart
   const qualityCtx = document.getElementById("qualityChart");
   charts.quality = new Chart(qualityCtx, {
@@ -1002,27 +823,29 @@ function createQualityChart(qualityData, cleanedSignalData) {
       maintainAspectRatio: false,
       interaction: {
         intersect: false,
-        mode: 'index'
+        mode: "index",
       },
       hover: {
         intersect: false,
-        animationDuration: 0
+        animationDuration: 0,
       },
       animation: false,
       plugins: {
         legend: {
           display: true,
-          onClick: function() {
+          onClick: function () {
+            // Disable legend click behavior to prevent dataset toggling
             return false;
           },
-          onHover: function() {
+          onHover: function () {
+            // Disable legend hover effects
             return false;
           },
           labels: {
             usePointStyle: false,
             boxWidth: 12,
-            color: '#374151'
-          }
+            color: "#374151",
+          },
         },
         annotation: {
           annotations: annotations,
@@ -1042,7 +865,7 @@ function createQualityChart(qualityData, cleanedSignalData) {
             text: "Amplitude (mV)",
           },
         },
-      }
+      },
     },
   });
 }
@@ -1053,67 +876,76 @@ function populateQualitySummary(qualityData) {
   const windows = qualityData.windows;
   const bestStartTime = qualityData.best_segment_times[0];
   const bestEndTime = qualityData.best_segment_times[1];
-  
+
   // Find the best window
-  const bestWindow = windows.find(window => 
-    window.start_time <= bestStartTime && window.end_time >= bestEndTime
-  ) || windows.find(window => 
-    Math.abs((window.start_time + window.end_time) / 2 - (bestStartTime + bestEndTime) / 2) < 5
-  );
-  
+  const bestWindow =
+    windows.find(
+      (window) =>
+        window.start_time <= bestStartTime && window.end_time >= bestEndTime
+    ) ||
+    windows.find(
+      (window) =>
+        Math.abs(
+          (window.start_time + window.end_time) / 2 -
+            (bestStartTime + bestEndTime) / 2
+        ) < 5
+    );
+
   const qualityStats = document.getElementById("qualityStats");
-  
+
   // Create stats elements iteratively
   const stats = [
     {
       label: "Overall Status:",
       value: summary.status,
-      className: `status-${summary.status.toLowerCase()}`
+      className: `status-${summary.status.toLowerCase()}`,
     },
     {
       label: "Quality Rate:",
-      value: `${summary.good_percentage.toFixed(1)}%`
+      value: `${summary.good_percentage.toFixed(1)}%`,
     },
     {
       label: "Good Windows:",
-      value: `${summary.good_windows}/${summary.total_windows}`
+      value: `${summary.good_windows}/${summary.total_windows}`,
     },
     {
       label: "Best Segment:",
-      value: `${bestStartTime.toFixed(2)}s - ${bestEndTime.toFixed(2)}s`
-    }
+      value: `${bestStartTime.toFixed(2)}s - ${bestEndTime.toFixed(2)}s`,
+    },
   ];
-  
+
   // Add best window stats if available
   if (bestWindow) {
     stats.push(
       {
         label: "Best Window mSQI:",
-        value: bestWindow.mSQI.toFixed(3)
+        value: bestWindow.mSQI.toFixed(3),
       },
       {
         label: "Best Window kSQI:",
-        value: bestWindow.kSQI.toFixed(2)
+        value: bestWindow.kSQI.toFixed(2),
       }
     );
   }
-  
+
   // Clear existing stats
-  qualityStats.innerHTML = '';
-  
+  qualityStats.innerHTML = "";
+
   // Create stat elements
-  stats.forEach(stat => {
+  stats.forEach((stat) => {
     const statDiv = document.createElement("div");
     statDiv.className = "quality-stat";
-    
+
     const labelSpan = document.createElement("span");
     labelSpan.className = "quality-label";
     labelSpan.textContent = stat.label;
-    
+
     const valueSpan = document.createElement("span");
-    valueSpan.className = stat.className ? `quality-value ${stat.className}` : "quality-value";
+    valueSpan.className = stat.className
+      ? `quality-value ${stat.className}`
+      : "quality-value";
     valueSpan.textContent = stat.value;
-    
+
     statDiv.appendChild(labelSpan);
     statDiv.appendChild(valueSpan);
     qualityStats.appendChild(statDiv);
@@ -1125,18 +957,18 @@ function populateQualityTable(qualityData) {
   const windows = qualityData.windows;
   const tableBody = document.getElementById("qualityTableBody");
   const detailsSummary = document.getElementById("qualityDetailsSummary");
-  
+
   // Update summary text
   detailsSummary.textContent = `Detailed Window Analysis (${windows.length} windows)`;
-  
+
   // Clear existing rows
-  tableBody.innerHTML = '';
-  
+  tableBody.innerHTML = "";
+
   // Create rows iteratively
-  windows.forEach(window => {
+  windows.forEach((window) => {
     const row = document.createElement("tr");
     row.className = `quality-row status-${window.status.toLowerCase()}`;
-    
+
     // Create cells
     const cells = [
       window.window,
@@ -1144,15 +976,15 @@ function populateQualityTable(qualityData) {
       window.mSQI.toFixed(3),
       window.kSQI.toFixed(2),
       window.heart_rate.toFixed(1),
-      window.sdnn.toFixed(2)
+      window.sdnn.toFixed(2),
     ];
-    
-    cells.forEach(cellContent => {
+
+    cells.forEach((cellContent) => {
       const cell = document.createElement("td");
       cell.textContent = cellContent;
       row.appendChild(cell);
     });
-    
+
     // Create status cell with badge
     const statusCell = document.createElement("td");
     const statusBadge = document.createElement("span");
@@ -1160,7 +992,7 @@ function populateQualityTable(qualityData) {
     statusBadge.textContent = window.status;
     statusCell.appendChild(statusBadge);
     row.appendChild(statusCell);
-    
+
     tableBody.appendChild(row);
   });
 }
@@ -1177,7 +1009,7 @@ function destroyCharts() {
 
 // Destroy only result charts (preserve preview and quality charts)
 function destroyResultCharts() {
-  ['raw', 'cleaned', 'heartRate', 'rPeaks'].forEach((chartKey) => {
+  ["raw", "cleaned", "heartRate", "rPeaks"].forEach((chartKey) => {
     if (charts[chartKey]) {
       charts[chartKey].destroy();
       delete charts[chartKey];
@@ -1204,7 +1036,7 @@ function setLoading(isLoading) {
   const submitBtn = document.getElementById("submitBtn");
   const btnText = document.getElementById("btnText");
   const btnSpinner = document.getElementById("btnSpinner");
-  
+
   submitBtn.disabled = isLoading;
   if (isLoading) {
     btnText.style.display = "none";
@@ -1220,7 +1052,7 @@ function setAnalyzeLoading(isLoading) {
   const analyzeBtn = document.getElementById("analyzeBtn");
   const analyzeBtnText = document.getElementById("analyzeBtnText");
   const analyzeBtnSpinner = document.getElementById("analyzeBtnSpinner");
-  
+
   analyzeBtn.disabled = isLoading;
   if (isLoading) {
     analyzeBtnText.style.display = "none";

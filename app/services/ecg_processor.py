@@ -101,8 +101,30 @@ class ECGProcessor:
         Returns:
             Tuple of (processed signals DataFrame, info dict with R-peaks)
         """
-        signals, info = nk.ecg_process(signal, sampling_rate=self.sampling_rate)
-        return signals, info
+        # Check minimum signal length (at least 5 seconds recommended for reliable segmentation)
+        min_samples = int(5 * self.sampling_rate)
+        signal_duration = len(signal) / self.sampling_rate
+        
+        if len(signal) < min_samples:
+            raise ValueError(
+                f"Signal too short for reliable analysis. "
+                f"Current duration: {signal_duration:.1f}s. "
+                f"Minimum recommended: 5.0s. "
+                f"Please select a longer timeframe or upload a longer recording."
+            )
+        
+        try:
+            signals, info = nk.ecg_process(signal, sampling_rate=self.sampling_rate)
+            return signals, info
+        except Exception as e:
+            # Catch NeuroKit2 segmentation errors
+            if "segment" in str(e).lower() or "too small" in str(e).lower():
+                raise ValueError(
+                    f"Signal duration ({signal_duration:.1f}s) is too short for ECG analysis. "
+                    f"Please select at least 5 seconds of data."
+                )
+            # Re-raise other errors
+            raise
     
     def analyze_file(
         self,

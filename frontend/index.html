@@ -9,10 +9,8 @@
   <body>
     <div class="container">
       <header>
-        <h1>🫀 ECG Analysis Service</h1>
-        <p class="subtitle">
-          Upload ADS1298 ECG data files for heart rate analysis
-        </p>
+        <h1>🫀 ECG Analysis Dashboard</h1>
+        <p class="subtitle">Upload and analyze ADS1298 ECG data files</p>
       </header>
 
       <main>
@@ -56,10 +54,10 @@
           class="timeframe-section"
           style="display: none"
         >
-          <h2>📊 Configure Analysis Parameters</h2>
+          <h2>📊 Analysis Configuration</h2>
 
           <div class="card">
-            <h3>⚙️ Analysis Settings</h3>
+            <h3>⚙️ Settings</h3>
 
             <div class="form-group">
               <label for="samplingRate">Sampling Rate (Hz)</label>
@@ -71,19 +69,13 @@
                 min="100"
                 max="2000"
               />
-              <small class="help-text"
-                >Expected sampling rate of your ECG recording</small
-              >
             </div>
 
             <div class="form-group">
-              <label for="channelSelect">Select Channel to Analyze:</label>
+              <label for="channelSelect">Channel</label>
               <select id="channelSelect" class="channel-select">
-                <option value="">Select a channel...</option>
+                <option value="">Select channel...</option>
               </select>
-              <small class="help-text"
-                >Choose which ECG channel to analyze</small
-              >
             </div>
 
             <div class="form-group checkbox-group">
@@ -94,7 +86,7 @@
                   name="include_signals"
                   checked
                 />
-                <span>Include signal data & charts in results</span>
+                <span>Include charts</span>
               </label>
             </div>
           </div>
@@ -102,15 +94,14 @@
           <div class="card" id="qualityCard" style="display: none">
             <details class="quality-card-toggle" open>
               <summary class="quality-card-header">
-                <h3>✅ Data Quality Check</h3>
+                <h3>✅ Quality Check</h3>
               </summary>
               <div class="quality-card-content">
-                <!-- Quality chart container -->
                 <div
                   id="qualityChartContainer"
                   style="
                     position: relative;
-                    height: 420px;
+                    height: 300px;
                     width: 100%;
                     display: none;
                   "
@@ -121,106 +112,108 @@
                   ></canvas>
                 </div>
 
-                <!-- Quality details container -->
                 <div
                   id="qualityDetailsContainer"
                   class="quality-details"
                   style="display: none"
                 >
                   <div class="quality-content-wrapper">
-                    <!-- Quality Summary -->
                     <div class="quality-summary">
-                      <h4>Quality Assessment Summary</h4>
-                      <div class="quality-stats" id="qualityStats">
-                        <!-- Stats will be populated by JavaScript -->
-                      </div>
+                      <h4>Summary</h4>
+                      <div class="quality-stats" id="qualityStats"></div>
                     </div>
 
-                    <!-- Quality Details Toggle -->
-                    <details class="quality-details-toggle">
-                      <summary id="qualityDetailsSummary">
-                        Detailed Window Analysis
-                      </summary>
-                      <div class="quality-table-container">
-                        <table class="quality-table">
-                          <thead>
-                            <tr>
-                              <th>Window</th>
-                              <th>Time Range (s)</th>
-                              <th>mSQI</th>
-                              <th>kSQI</th>
-                              <th>HR (bpm)</th>
-                              <th>SDNN</th>
-                              <th>Status</th>
-                            </tr>
-                          </thead>
-                          <tbody id="qualityTableBody">
-                            <!-- Table rows will be populated by JavaScript -->
-                          </tbody>
-                        </table>
+                    <div class="quality-right-column">
+                      <details class="quality-details-toggle">
+                        <summary id="qualityDetailsSummary">
+                          Window Analysis
+                        </summary>
+                        <div class="quality-table-container">
+                          <table class="quality-table">
+                            <thead>
+                              <tr>
+                                <th>Window</th>
+                                <th>Time (s)</th>
+                                <th>mSQI</th>
+                                <th>kSQI</th>
+                                <th>HR</th>
+                                <th>Status</th>
+                              </tr>
+                            </thead>
+                            <tbody id="qualityTableBody"></tbody>
+                          </table>
+                        </div>
+                      </details>
+
+                      <div
+                        class="timeframe-controls"
+                        style="
+                          margin-top: 0;
+                          border: 1px solid #6366f1;
+                          background: white;
+                        "
+                      >
+                        <h4
+                          style="
+                            margin-bottom: 1rem;
+                            color: var(--text-primary);
+                          "
+                        >
+                          ⏱️ Timeframe Selection
+                        </h4>
+                        <div class="slider-group">
+                          <label for="startTimeSlider">
+                            Start: <span id="startTimeValue">0.00</span>s
+                          </label>
+                          <input
+                            type="range"
+                            id="startTimeSlider"
+                            class="time-slider"
+                            min="0"
+                            max="100"
+                            value="0"
+                            step="0.1"
+                          />
+                        </div>
+
+                        <div class="slider-group">
+                          <label for="endTimeSlider">
+                            End: <span id="endTimeValue">0.00</span>s
+                          </label>
+                          <input
+                            type="range"
+                            id="endTimeSlider"
+                            class="time-slider"
+                            min="0"
+                            max="100"
+                            value="100"
+                            step="0.1"
+                          />
+                        </div>
+
+                        <div class="timeframe-info">
+                          <p>
+                            Duration:
+                            <strong id="selectedDuration">0.00</strong>s
+                            (<strong id="selectedSamples">0</strong>
+                            samples)
+                          </p>
+                        </div>
                       </div>
-                    </details>
+
+                      <button id="analyzeBtn" class="btn-primary">
+                        <span id="analyzeBtnText">Analyze Timeframe</span>
+                        <span
+                          id="analyzeBtnSpinner"
+                          class="spinner"
+                          style="display: none"
+                        ></span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
             </details>
-          </div>
-
-          <div class="card" id="previewCard" style="display: none">
-            <h3>🔍 Signal Preview</h3>
-            <canvas id="previewChart"></canvas>
-
-            <div class="timeframe-controls">
-              <div class="slider-group">
-                <label for="startTimeSlider">
-                  Start Time: <span id="startTimeValue">0.00</span>s
-                </label>
-                <input
-                  type="range"
-                  id="startTimeSlider"
-                  class="time-slider"
-                  min="0"
-                  max="100"
-                  value="0"
-                  step="0.1"
-                />
-              </div>
-
-              <div class="slider-group">
-                <label for="endTimeSlider">
-                  End Time: <span id="endTimeValue">0.00</span>s
-                </label>
-                <input
-                  type="range"
-                  id="endTimeSlider"
-                  class="time-slider"
-                  min="0"
-                  max="100"
-                  value="100"
-                  step="0.1"
-                />
-              </div>
-
-              <div class="timeframe-info">
-                <p>
-                  Selected Duration:
-                  <strong id="selectedDuration">0.00</strong>s (<strong
-                    id="selectedSamples"
-                    >0</strong
-                  >
-                  samples)
-                </p>
-              </div>
-            </div>
-
-            <button id="analyzeBtn" class="btn-primary">
-              <span id="analyzeBtnText">Analyze Selected Timeframe</span>
-              <span
-                id="analyzeBtnSpinner"
-                class="spinner"
-                style="display: none"
-              ></span>
-            </button>
           </div>
         </section>
 
@@ -232,12 +225,12 @@
         >
           <h2>Analysis Results</h2>
 
-          <!-- Metadata Card -->
+          <!-- Metadata & Statistics in side-by-side layout -->
           <div class="card">
-            <h3>📋 Recording Metadata</h3>
+            <h3>📋 Metadata</h3>
             <div class="metadata-grid">
               <div class="metadata-item">
-                <span class="label">Record Number:</span>
+                <span class="label">Record #:</span>
                 <span id="recordNumber" class="value">-</span>
               </div>
               <div class="metadata-item">
@@ -249,20 +242,12 @@
                 <span id="duration-value" class="value">-</span>
               </div>
               <div class="metadata-item">
-                <span class="label">Sample Count:</span>
+                <span class="label">Samples:</span>
                 <span id="sampleCount" class="value">-</span>
               </div>
               <div class="metadata-item">
-                <span class="label">Processed Channel:</span>
+                <span class="label">Channel:</span>
                 <span id="processedChannel" class="value">-</span>
-              </div>
-              <div class="metadata-item">
-                <span class="label">Available Channels:</span>
-                <span id="availableChannels" class="value">-</span>
-              </div>
-              <div class="metadata-item full-width">
-                <span class="label">Notes:</span>
-                <span id="notes" class="value">-</span>
               </div>
               <div class="metadata-item">
                 <span class="label">Gain:</span>
@@ -271,9 +256,8 @@
             </div>
           </div>
 
-          <!-- Statistics Card -->
           <div class="card statistics-card">
-            <h3>📊 Heart Rate Statistics</h3>
+            <h3>📊 Heart Rate Stats</h3>
             <div class="stats-grid">
               <div class="stat-box">
                 <div class="stat-label">Mean HR</div>
@@ -281,7 +265,7 @@
                 <div class="stat-unit">bpm</div>
               </div>
               <div class="stat-box">
-                <div class="stat-label">Std Deviation</div>
+                <div class="stat-label">Std Dev</div>
                 <div id="hrStd" class="stat-value">-</div>
                 <div class="stat-unit">bpm</div>
               </div>
@@ -296,49 +280,53 @@
                 <div class="stat-unit">bpm</div>
               </div>
               <div class="stat-box">
-                <div class="stat-label">R-Peaks Detected</div>
+                <div class="stat-label">R-Peaks</div>
                 <div id="rPeaks" class="stat-value">-</div>
                 <div class="stat-unit">peaks</div>
               </div>
               <div class="stat-box">
-                <div class="stat-label">Sampling Rate</div>
+                <div class="stat-label">Rate</div>
                 <div id="samplingRateResult" class="stat-value">-</div>
                 <div class="stat-unit">Hz</div>
               </div>
             </div>
           </div>
 
-          <!-- Charts Section (shown when include_signals is checked) -->
+          <!-- Charts Section -->
           <div id="chartsSection" style="display: none">
             <div class="card">
-              <h3>📈 ECG Signal Visualization</h3>
+              <h3>📈 Raw Signal</h3>
               <canvas id="rawSignalChart"></canvas>
             </div>
 
             <div class="card">
-              <h3>🔍 Cleaned ECG Signal</h3>
+              <h3>🔍 Cleaned Signal</h3>
               <canvas id="cleanedSignalChart"></canvas>
             </div>
 
             <div class="card">
-              <h3>💓 Heart Rate Over Time</h3>
+              <h3>💓 Heart Rate</h3>
               <canvas id="heartRateChart"></canvas>
             </div>
 
             <div class="card">
-              <h3>🎯 R-Peaks Detection</h3>
+              <h3>🎯 R-Peaks</h3>
               <canvas id="rPeaksChart"></canvas>
             </div>
           </div>
 
-          <button id="newAnalysisBtn" class="btn-secondary">
-            ← Analyze Another File
+          <button
+            id="newAnalysisBtn"
+            class="btn-secondary"
+            style="grid-column: 1 / -1"
+          >
+            ← New Analysis
           </button>
         </section>
       </main>
 
       <footer>
-        <p>ECG Processing Service v1.0.0 | Powered by NeuroKit2 & FastAPI</p>
+        <p>ECG Analysis Dashboard v1.0 | Powered by NeuroKit2 & FastAPI</p>
       </footer>
     </div>
 
