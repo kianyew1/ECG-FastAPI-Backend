@@ -581,9 +581,11 @@ function createCharts(data) {
   });
 
   // R-Peaks Chart (Cleaned signal with peaks marked)
-  const rPeaksData = downsample(
+  // Use smart downsampling that preserves R-peak locations
+  const rPeaksData = downsamplePreservingPeaks(
     data.cleaned_signal.time,
     data.cleaned_signal.values,
+    data.r_peak_times,
     maxPoints
   );
   charts.rPeaks = new Chart(document.getElementById("rPeaksChart"), {
@@ -640,6 +642,59 @@ function downsample(xData, yData, maxPoints) {
 
   return { x: downsampledX, y: downsampledY };
 }
+
+// Smart downsampling that preserves important peaks
+function downsamplePreservingPeaks(xData, yData, peakTimes, maxPoints) {
+  if (xData.length <= maxPoints) {
+    return { x: xData, y: yData };
+  }
+
+  // Create a set of indices we must keep (peaks and their neighbors)
+  const mustKeepIndices = new Set();
+  
+  peakTimes.forEach(peakTime => {
+    // Find the closest index to this peak time
+    let closestIdx = 0;
+    let minDiff = Math.abs(xData[0] - peakTime);
+    
+    for (let i = 1; i < xData.length; i++) {
+      const diff = Math.abs(xData[i] - peakTime);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closestIdx = i;
+      } else if (diff > minDiff) {
+        // We've passed the peak, no need to continue
+        break;
+      }
+    }
+    
+    // Keep the peak and some neighbors for shape preservation
+    for (let offset = -5; offset <= 5; offset++) {
+      const idx = closestIdx + offset;
+      if (idx >= 0 && idx < xData.length) {
+        mustKeepIndices.add(idx);
+      }
+    }
+  });
+
+  // Calculate how many additional points we can add
+  const remainingPoints = maxPoints - mustKeepIndices.size;
+  const step = Math.max(1, Math.floor(xData.length / remainingPoints));
+
+  const resultX = [];
+  const resultY = [];
+
+  for (let i = 0; i < xData.length; i++) {
+    // Always keep must-keep indices, or keep every step-th point
+    if (mustKeepIndices.has(i) || i % step === 0) {
+      resultX.push(xData[i]);
+      resultY.push(yData[i]);
+    }
+  }
+
+  return { x: resultX, y: resultY };
+}
+
 
 // Display quality assessment function
 function displayQualityAssessment(qualityData, cleanedSignalData) {
