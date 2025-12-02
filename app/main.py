@@ -17,6 +17,7 @@ from .models.ecg_models import (
     HealthResponse,
 )
 from .services.ecg_processor import ECGProcessor
+from .services.aimclub_ecg_service import AimClubECGService, is_aimclub_available
 
 # Configure logging
 logging.basicConfig(
@@ -149,6 +150,121 @@ async def analyze_ecg(
         )
         
         return ECGAnalysisResponse(**result)
+    
+    except ValueError as e:
+        logger.error(f"Processing error: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
+    
+    finally:
+        # Clean up temporary file
+        if temp_file_path and os.path.exists(temp_file_path):
+            try:
+                os.unlink(temp_file_path)
+                logger.debug(f"Cleaned up temp file: {temp_file_path}")
+            except Exception as e:
+                logger.warning(f"Failed to delete temp file: {e}")
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    """Global exception handler for uncaught errors."""
+    logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "An unexpected error occurred. Please try again."}
+    )
+
+
+@app.post("/api/analyze-aimclub")
+async def analyze_ecg_aimclub(
+    file: UploadFile = File(..., description="ADS1298 ECG data file (.txt) - 8 channels"),
+    duration: Optional[float] = Form(None, description="Duration to process (seconds, min 5s)"),
+    include_nn: bool = Form(True, description="Include neural network analysis")
+):
+    """
+    Analyze uploaded 8-channel ECG file using aimclub ECG library.
+    
+    This endpoint converts your 8-channel data to 12-lead format and performs:
+    - ST-elevation detection (classic CV and neural network)
+    - Risk marker evaluation (QTc, RA_V4, STE60_V3)
+    - Differential diagnosis (MI vs BER)
+    - QRS complex detection
+    
+    Args:
+        file: Uploaded .txt file with 8-channel ECG data
+        duration: Duration to analyze (minimum 5 seconds recommended)
+        include_nn: Include neural network-based analysis
+    
+    Returns:
+        Comprehensive analysis using aimclub ECG library
+    """
+    if not is_aimclub_available():
+        raise HTTPException(
+            status_code=503,
+            detail="AimClub ECG library not installed. Install with: pip install git+https://github.com/aimclub/ECG.git"
+        )
+    
+    # Validate file type
+    if not file.filename.endswith('.txt'):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid file type. Only .txt files are supported."
+        )
+    
+    temp_file_path = None
+    
+    try:
+        # Save uploaded file temporarily
+        with tempfile.NamedTemporaryFile(
+            mode='wb',
+            delete=False,
+            suffix='.txt',
+            dir=settings.temp_dir
+        ) as temp_file:
+            content = await file.read()
+            file_size_mb = len(content) / (1024 * 1024)
+            
+            if file_size_mb > settings.max_upload_size_mb:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"File too large. Maximum size: {settings.max_upload_size_mb}MB"
+                )
+            
+            temp_file.write(content)
+            temp_file_path = temp_file.name
+        
+        logger.info(f"Processing file with aimclub: {file.filename} ({file_size_mb:.2f}MB)")
+        
+        # Validate duration
+        if duration and duration < 5.0:
+            raise HTTPException(
+                status_code=400,
+                detail="Duration must be at least 5 seconds for aimclub analysis"
+            )
+        
+        # Create aimclub service (requires 500 Hz)
+        aimclub_service = AimClubECGService(sampling_rate=500)
+        
+        # Run complete analysis
+        result = aimclub_service.analyze_ecg_complete(
+            filepath=temp_file_path,
+            duration=duration,
+            include_nn_analysis=include_nn
+        )
+        
+        if not result['success']:
+            raise HTTPException(status_code=400, detail=result.get('error', 'Analysis failed'))
+        
+        logger.info(
+            f"AimClub analysis complete: {result['signal_info']['duration_seconds']:.2f}s, "
+            f"{result['signal_info']['samples']} samples"
+        )
+        
+        return JSONResponse(content=result)
     
     except ValueError as e:
         logger.error(f"Processing error: {str(e)}")
