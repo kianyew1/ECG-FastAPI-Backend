@@ -8,6 +8,9 @@ const errorMessage = document.getElementById("errorMessage");
 const resultsSection = document.getElementById("resultsSection");
 const timeframeSection = document.getElementById("timeframeSection");
 const channelSelect = document.getElementById("channelSelect");
+const qualityHighlightToggle = document.getElementById(
+  "qualityHighlightToggle"
+);
 // const previewCard = document.getElementById("previewCard"); // Removed
 const startTimeSlider = document.getElementById("startTimeSlider");
 const endTimeSlider = document.getElementById("endTimeSlider");
@@ -21,6 +24,16 @@ let previewData = null;
 let currentFile = null;
 let maxDuration = 0;
 let samplingRate = 500;
+let showQualityHighlights = true;
+let currentQualityData = null;
+let currentCleanedSignalData = null;
+
+if (qualityHighlightToggle) {
+  qualityHighlightToggle.addEventListener("change", (e) => {
+    showQualityHighlights = e.target.checked;
+    applyQualityOverlayVisibility();
+  });
+}
 
 // Channel selection handler
 channelSelect.addEventListener("change", (e) => {
@@ -393,6 +406,8 @@ document.getElementById("newAnalysisBtn").addEventListener("click", () => {
   // Hide sections
   document.getElementById("resultsSection").style.display = "none";
   document.getElementById("timeframeSection").style.display = "none";
+  document.getElementById("aimclubSection").style.display = "none";
+  document.getElementById("aimclubResults").style.display = "none";
   // document.getElementById("previewCard").style.display = "none"; // Removed
 
   // Hide quality card and destroy quality chart
@@ -447,6 +462,9 @@ function displayResults(data, includeSignals) {
 
   // Show results section
   document.getElementById("resultsSection").style.display = "block";
+
+  // Show aimclub section (below results)
+  document.getElementById("aimclubSection").style.display = "block";
 
   // Handle charts if signals are included
   if (includeSignals && data.raw_signal) {
@@ -699,6 +717,8 @@ function downsamplePreservingPeaks(xData, yData, peakTimes, maxPoints) {
 // Display quality assessment function
 function displayQualityAssessment(qualityData, cleanedSignalData) {
   const qualityCard = document.getElementById("qualityCard");
+  currentQualityData = qualityData;
+  currentCleanedSignalData = cleanedSignalData;
 
   // Show quality card
   qualityCard.style.display = "block";
@@ -739,6 +759,86 @@ function createQualityChart(qualityData, cleanedSignalData) {
     cleanedSignalData.values,
     maxPoints
   );
+
+  const annotations = buildQualityAnnotations(qualityData);
+
+  // Keep UI toggle synced with current state
+  if (qualityHighlightToggle) {
+    qualityHighlightToggle.checked = showQualityHighlights;
+  }
+
+  // Create quality chart
+  const qualityCtx = document.getElementById("qualityChart");
+  charts.quality = new Chart(qualityCtx, {
+    type: "line",
+    data: {
+      labels: signalData.x,
+      datasets: [
+        {
+          label: "Cleaned ECG Signal (Quality Assessment)",
+          data: signalData.y,
+          borderColor: "#6366f1",
+          borderWidth: 1,
+          pointRadius: 0,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        intersect: false,
+        mode: "index",
+      },
+      hover: {
+        intersect: false,
+        animationDuration: 0,
+      },
+      animation: false,
+      plugins: {
+        legend: {
+          display: true,
+          onClick: function () {
+            // Disable legend click behavior to prevent dataset toggling
+            return false;
+          },
+          onHover: function () {
+            // Disable legend hover effects
+            return false;
+          },
+          labels: {
+            usePointStyle: false,
+            boxWidth: 12,
+            color: "#374151",
+          },
+        },
+        annotation: {
+          annotations: annotations,
+        },
+      },
+      scales: {
+        x: {
+          title: {
+            display: true,
+            text: "Time (seconds)",
+          },
+          type: "linear",
+        },
+        y: {
+          title: {
+            display: true,
+            text: "Amplitude (mV)",
+          },
+        },
+      },
+    },
+  });
+}
+
+function buildQualityAnnotations(qualityData) {
+  if (!showQualityHighlights) {
+    return {};
+  }
 
   // Create annotations for quality segments
   const annotations = {};
@@ -857,72 +957,18 @@ function createQualityChart(qualityData, cleanedSignalData) {
     };
   });
 
-  // Create quality chart
-  const qualityCtx = document.getElementById("qualityChart");
-  charts.quality = new Chart(qualityCtx, {
-    type: "line",
-    data: {
-      labels: signalData.x,
-      datasets: [
-        {
-          label: "Cleaned ECG Signal (Quality Assessment)",
-          data: signalData.y,
-          borderColor: "#6366f1",
-          borderWidth: 1,
-          pointRadius: 0,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: {
-        intersect: false,
-        mode: "index",
-      },
-      hover: {
-        intersect: false,
-        animationDuration: 0,
-      },
-      animation: false,
-      plugins: {
-        legend: {
-          display: true,
-          onClick: function () {
-            // Disable legend click behavior to prevent dataset toggling
-            return false;
-          },
-          onHover: function () {
-            // Disable legend hover effects
-            return false;
-          },
-          labels: {
-            usePointStyle: false,
-            boxWidth: 12,
-            color: "#374151",
-          },
-        },
-        annotation: {
-          annotations: annotations,
-        },
-      },
-      scales: {
-        x: {
-          title: {
-            display: true,
-            text: "Time (seconds)",
-          },
-          type: "linear",
-        },
-        y: {
-          title: {
-            display: true,
-            text: "Amplitude (mV)",
-          },
-        },
-      },
-    },
-  });
+  return annotations;
+}
+
+function applyQualityOverlayVisibility() {
+  if (!currentQualityData || !currentCleanedSignalData) return;
+
+  if (charts.quality) {
+    charts.quality.destroy();
+    charts.quality = null;
+  }
+
+  createQualityChart(currentQualityData, currentCleanedSignalData);
 }
 
 // Populate quality summary
@@ -1115,5 +1161,196 @@ function setAnalyzeLoading(isLoading) {
   } else {
     analyzeBtnText.style.display = "inline";
     analyzeBtnSpinner.style.display = "none";
+  }
+}
+
+// AimClub Analysis Button Handler
+document.getElementById("runAimclubBtn").addEventListener("click", async () => {
+  if (!currentFile) {
+    showError("No file loaded. Please start over.");
+    return;
+  }
+
+  const startTime = parseFloat(startTimeSlider.value);
+  const endTime = parseFloat(endTimeSlider.value);
+  const duration = endTime - startTime;
+  const includeNN = document.getElementById("includeNN").checked;
+
+  // Validate minimum duration for aimclub (5 seconds)
+  if (duration < 5.0) {
+    showError(
+      "AimClub analysis requires at least 5 seconds of data. Please adjust your timeframe selection."
+    );
+    return;
+  }
+
+  // Show loading state
+  setAimclubLoading(true);
+
+  try {
+    // Create form data
+    const formData = new FormData();
+    formData.append("file", currentFile);
+    formData.append("duration", duration.toString());
+    formData.append("include_nn", includeNN.toString());
+
+    const response = await fetch("/api/analyze-aimclub", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(
+        errorData.detail || `HTTP error! status: ${response.status}`
+      );
+    }
+
+    const data = await response.json();
+
+    if (!data.success) {
+      throw new Error(data.error || "Analysis failed");
+    }
+
+    // Display aimclub results
+    displayAimclubResults(data);
+  } catch (error) {
+    console.error("Error:", error);
+    showError(`AimClub analysis failed: ${error.message}`);
+  } finally {
+    setAimclubLoading(false);
+  }
+});
+
+// Display AimClub results
+function displayAimclubResults(data) {
+  // Show results container
+  document.getElementById("aimclubResults").style.display = "block";
+
+  // Signal information
+  const info = data.signal_info;
+  document.getElementById("aimclubChannels").textContent =
+    info.original_channels;
+  document.getElementById("aimclubLeads").textContent = info.converted_leads;
+  document.getElementById("aimclubSamples").textContent =
+    info.samples.toLocaleString();
+  document.getElementById(
+    "aimclubDuration"
+  ).textContent = `${info.duration_seconds.toFixed(2)}s`;
+
+  // ST-Elevation Classic
+  const stClassic = data.st_elevation_classic;
+  if (stClassic.success) {
+    const status = stClassic.st_elevation_detected.toLowerCase();
+    document.getElementById("stClassicStatus").textContent =
+      stClassic.st_elevation_detected;
+    document.getElementById("stClassicStatus").className = `result-status ${
+      status === "normal" ? "normal" : "abnormal"
+    }`;
+    document.getElementById("stClassicExplanation").textContent =
+      stClassic.explanation;
+  }
+
+  // ST-Elevation Neural Network
+  if (data.st_elevation_nn) {
+    const stNN = data.st_elevation_nn;
+    document.getElementById("stNNBox").style.display = "block";
+    if (stNN.success) {
+      const status = stNN.st_elevation_detected.toLowerCase();
+      document.getElementById("stNNStatus").textContent =
+        stNN.st_elevation_detected;
+      document.getElementById("stNNStatus").className = `result-status ${
+        status === "normal" ? "normal" : "abnormal"
+      }`;
+      document.getElementById("stNNExplanation").textContent = stNN.explanation;
+    }
+  }
+
+  // Risk Markers
+  const risk = data.risk_markers;
+  if (risk.success) {
+    document.getElementById("aimclubQTc").textContent = risk.QTc_ms.toFixed(1);
+    document.getElementById("aimclubRAV4").textContent =
+      risk.RA_V4_mv.toFixed(3);
+    document.getElementById("aimclubSTE60").textContent =
+      risk.STE60_V3_mv.toFixed(3);
+  }
+
+  // Differential Diagnosis - Risk Markers
+  const diagRisk = data.diagnosis_risk_markers;
+  if (diagRisk.success) {
+    const diagnosis = diagRisk.diagnosis.toLowerCase();
+    document.getElementById("diagRiskStatus").textContent = diagRisk.diagnosis;
+    document.getElementById("diagRiskStatus").className = `result-status ${
+      diagnosis === "normal" ? "normal" : "abnormal"
+    }`;
+    document.getElementById("diagRiskExplanation").textContent =
+      diagRisk.explanation;
+  }
+
+  // Differential Diagnosis - Neural Network
+  if (data.diagnosis_nn) {
+    const diagNN = data.diagnosis_nn;
+    document.getElementById("diagNNBox").style.display = "block";
+    if (diagNN.success) {
+      document.getElementById("diagBER").textContent = diagNN.ber_detected
+        ? `Detected - ${diagNN.ber_explanation}`
+        : `Not Detected - ${diagNN.ber_explanation}`;
+      document.getElementById("diagMI").textContent = diagNN.mi_detected
+        ? `Detected - ${diagNN.mi_explanation}`
+        : `Not Detected - ${diagNN.mi_explanation}`;
+    }
+  }
+
+  // QRS Complex
+  const qrs = data.qrs_complex;
+  const qrsSummary = document.getElementById("qrsSummary");
+  if (qrs.success) {
+    let qrsHtml = `<p><strong>Channels analyzed:</strong> ${qrs.qrs_peaks_detected}</p>`;
+
+    if (qrs.peaks_summary && qrs.peaks_summary.length > 0) {
+      // Show first 3 channels with detailed wave info
+      const channelsToShow = qrs.peaks_summary.slice(0, 3);
+      channelsToShow.forEach((channel) => {
+        qrsHtml += `<div class="qrs-channel">`;
+        qrsHtml += `<h5>Channel ${channel.channel}</h5>`;
+        qrsHtml += `<div class="qrs-waves">`;
+        for (const [wave, data] of Object.entries(channel.waves)) {
+          qrsHtml += `<div class="qrs-wave-item"><strong>${wave}:</strong> ${data.count} peaks</div>`;
+        }
+        qrsHtml += `</div></div>`;
+      });
+
+      if (qrs.peaks_summary.length > 3) {
+        qrsHtml += `<p style="margin-top: 1rem; color: var(--text-secondary); font-style: italic;">+ ${
+          qrs.peaks_summary.length - 3
+        } more channels analyzed</p>`;
+      }
+    }
+
+    qrsSummary.innerHTML = qrsHtml;
+  } else {
+    qrsSummary.innerHTML = `<p style="color: var(--error-color);">QRS analysis failed: ${qrs.error}</p>`;
+  }
+
+  // Scroll to aimclub section
+  document
+    .getElementById("aimclubSection")
+    .scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// Set aimclub button loading state
+function setAimclubLoading(isLoading) {
+  const btn = document.getElementById("runAimclubBtn");
+  const btnText = document.getElementById("aimclubBtnText");
+  const btnSpinner = document.getElementById("aimclubBtnSpinner");
+
+  btn.disabled = isLoading;
+  if (isLoading) {
+    btnText.style.display = "none";
+    btnSpinner.style.display = "inline-block";
+  } else {
+    btnText.style.display = "inline";
+    btnSpinner.style.display = "none";
   }
 }

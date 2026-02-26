@@ -112,6 +112,17 @@
                   ></canvas>
                 </div>
 
+                <div class="quality-toggle-row">
+                  <label>
+                    <input
+                      type="checkbox"
+                      id="qualityHighlightToggle"
+                      checked
+                    />
+                    <span>Show highlighted segments</span>
+                  </label>
+                </div>
+
                 <div
                   id="qualityDetailsContainer"
                   class="quality-details"
@@ -331,6 +342,137 @@
           >
             ← New Analysis
           </button>
+        </section>
+
+        <!-- AimClub Advanced Analysis Section -->
+        <section
+          id="aimclubSection"
+          class="aimclub-section"
+          style="display: none"
+        >
+          <h2>🧠 Advanced Clinical Analysis (AimClub ECG)</h2>
+          <p class="section-description">
+            Deep learning-based ST-elevation detection, risk markers, and
+            differential diagnosis
+          </p>
+
+          <div class="card">
+            <div class="aimclub-controls">
+              <button id="runAimclubBtn" class="btn-primary">
+                <span id="aimclubBtnText">🚀 Run Advanced Analysis</span>
+                <span
+                  id="aimclubBtnSpinner"
+                  class="spinner"
+                  style="display: none"
+                ></span>
+              </button>
+              <label class="checkbox-inline">
+                <input type="checkbox" id="includeNN" checked />
+                <span>Include Neural Network Analysis</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- AimClub Results -->
+          <div id="aimclubResults" style="display: none">
+            <!-- Signal Info -->
+            <div class="card">
+              <h3>📊 Signal Information</h3>
+              <div class="metadata-grid">
+                <div class="metadata-item">
+                  <span class="label">Original Channels:</span>
+                  <span id="aimclubChannels" class="value">-</span>
+                </div>
+                <div class="metadata-item">
+                  <span class="label">Converted Leads:</span>
+                  <span id="aimclubLeads" class="value">-</span>
+                </div>
+                <div class="metadata-item">
+                  <span class="label">Samples:</span>
+                  <span id="aimclubSamples" class="value">-</span>
+                </div>
+                <div class="metadata-item">
+                  <span class="label">Duration:</span>
+                  <span id="aimclubDuration" class="value">-</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- ST-Elevation Detection -->
+            <div class="card">
+              <h3>🔍 ST-Elevation Detection</h3>
+              <div class="analysis-grid">
+                <div class="analysis-box">
+                  <h4>Classic CV Method</h4>
+                  <div class="result-status" id="stClassicStatus">-</div>
+                  <p class="result-explanation" id="stClassicExplanation">-</p>
+                </div>
+                <div class="analysis-box" id="stNNBox" style="display: none">
+                  <h4>Neural Network</h4>
+                  <div class="result-status" id="stNNStatus">-</div>
+                  <p class="result-explanation" id="stNNExplanation">-</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Risk Markers -->
+            <div class="card">
+              <h3>⚠️ Risk Markers</h3>
+              <div class="stats-grid">
+                <div class="stat-box">
+                  <div class="stat-label">QTc</div>
+                  <div id="aimclubQTc" class="stat-value">-</div>
+                  <div class="stat-unit">ms</div>
+                  <div class="stat-info">Normal: 350-450 ms</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">RA_V4</div>
+                  <div id="aimclubRAV4" class="stat-value">-</div>
+                  <div class="stat-unit">mV</div>
+                  <div class="stat-info">R-wave amplitude V4</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">STE60_V3</div>
+                  <div id="aimclubSTE60" class="stat-value">-</div>
+                  <div class="stat-unit">mV</div>
+                  <div class="stat-info">ST elevation at 60ms V3</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Differential Diagnosis -->
+            <div class="card">
+              <h3>💊 Differential Diagnosis</h3>
+              <div class="analysis-grid">
+                <div class="analysis-box">
+                  <h4>Risk Marker Method</h4>
+                  <div class="result-status" id="diagRiskStatus">-</div>
+                  <p class="result-explanation" id="diagRiskExplanation">-</p>
+                </div>
+                <div class="analysis-box" id="diagNNBox" style="display: none">
+                  <h4>Neural Network</h4>
+                  <div class="diagnosis-results">
+                    <div class="diagnosis-item">
+                      <strong>BER Detection:</strong>
+                      <span id="diagBER">-</span>
+                    </div>
+                    <div class="diagnosis-item">
+                      <strong>MI Detection:</strong>
+                      <span id="diagMI">-</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- QRS Complex -->
+            <div class="card">
+              <h3>💓 QRS Complex Detection</h3>
+              <div class="qrs-summary" id="qrsSummary">
+                <p>Loading QRS analysis...</p>
+              </div>
+            </div>
+          </div>
         </section>
       </main>
 

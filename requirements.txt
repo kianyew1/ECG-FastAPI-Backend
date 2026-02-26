@@ -7,6 +7,10 @@ scipy>=1.10.0
 neurokit2>=0.2.0
 matplotlib>=3.7.0
 
+# AimClub ECG library (optional, for advanced analysis)
+# Install with: pip install git+https://github.com/aimclub/ECG.git
+# Requires: torch, opencv-python, grad-cam, pillow
+
 # API framework
 fastapi>=0.104.0
 uvicorn[standard]>=0.24.0

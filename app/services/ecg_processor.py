@@ -224,10 +224,11 @@ class ECGProcessor:
             try:
                 ecg_cleaned = signals['ECG_Clean'].values
                 quality_result = assess_ecg_quality(ecg_cleaned, self.sampling_rate)
+                results_df = quality_result.get('results_df', pd.DataFrame())
                 
                 # Convert DataFrame rows to QualityWindow objects
                 quality_windows = []
-                for _, row in quality_result['results_df'].iterrows():
+                for _, row in results_df.iterrows():
                     quality_window = QualityWindow(
                         window=int(row['window']),
                         start_time=float(row['start_time']),
@@ -243,41 +244,56 @@ class ECGProcessor:
                     quality_windows.append(quality_window)
                 
                 # Create summary
-                summary_data = quality_result['summary']
+                summary_data = quality_result.get('summary', {})
                 print("quality_summary:", summary_data)
-                print("quality_results_df:", quality_result['results_df'])
+                print("quality_results_df:", results_df)
                 # Count acceptable windows (baseline wander cases)
-                acceptable_count = len(quality_result['results_df'][
-                    (quality_result['results_df']['status'] == 'GOOD') &
-                    (quality_result['results_df']['mSQI'] > 0.8) &
-                    (quality_result['results_df']['kSQI'] < 4.0)
-                ])
+                if {'status', 'mSQI', 'kSQI'}.issubset(results_df.columns):
+                    acceptable_count = len(results_df[
+                        (results_df['status'] == 'GOOD (Baseline Wander)') &
+                        (results_df['mSQI'] > 0.8) &
+                        (results_df['kSQI'] < 4.0)
+                    ])
+                else:
+                    acceptable_count = 0
+
+                total_windows = int(summary_data.get('total_windows', len(results_df)))
+                good_windows = int(summary_data.get('good_windows', 0))
+                rejected_windows = int(summary_data.get('rejected_windows', 0))
+                unreliable_windows = int(summary_data.get('unreliable_windows', 0))
+                good_percentage = float(summary_data.get('good_percentage', 0.0))
+                overall_status = str(summary_data.get('status', 'FAILED' if total_windows == 0 else 'WARNING'))
                 
                 quality_summary = QualitySummary(
-                    total_windows=int(summary_data['total_windows']),
-                    good_windows=int(summary_data['good_windows']),
-                    rejected_windows=int(summary_data['rejected_windows']),
-                    unreliable_windows=int(summary_data['unreliable_windows']),
+                    total_windows=total_windows,
+                    good_windows=good_windows,
+                    rejected_windows=rejected_windows,
+                    unreliable_windows=unreliable_windows,
                     acceptable_windows=acceptable_count,
-                    good_percentage=float(summary_data['good_percentage']),
-                    status=str(summary_data['status'])
+                    good_percentage=good_percentage,
+                    status=overall_status
                 )
                 
                 # Convert indices to times for frontend
-                best_start_time = quality_result['best_segment_indices'][0] / self.sampling_rate
-                best_end_time = quality_result['best_segment_indices'][1] / self.sampling_rate
+                best_segment_indices = quality_result.get(
+                    'best_segment_indices',
+                    [0, min(len(ecg_cleaned), 10 * self.sampling_rate)]
+                )
+                best_start_time = best_segment_indices[0] / self.sampling_rate
+                best_end_time = best_segment_indices[1] / self.sampling_rate
                 
                 bad_segment_times = []
-                for bad_segment in quality_result['bad_segments']:
+                bad_segments = quality_result.get('bad_segments', [])
+                for bad_segment in bad_segments:
                     bad_start_time = bad_segment[0] / self.sampling_rate
                     bad_end_time = bad_segment[1] / self.sampling_rate
                     bad_segment_times.append([bad_start_time, bad_end_time])
                 
                 # Create quality assessment object
                 quality_assessment = QualityAssessment(
-                    best_segment_indices=quality_result['best_segment_indices'],
+                    best_segment_indices=best_segment_indices,
                     best_segment_times=[best_start_time, best_end_time],
-                    bad_segments=quality_result['bad_segments'],
+                    bad_segments=bad_segments,
                     bad_segment_times=bad_segment_times,
                     windows=quality_windows,
                     summary=quality_summary
