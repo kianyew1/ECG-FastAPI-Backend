@@ -76,7 +76,7 @@ def assess_ecg_quality(ecg_cleaned: np.ndarray, sampling_rate: int = 500) -> Dic
     
     # Calculate number of windows
     max_start = len(ecg_cleaned) - window_size
-    if max_start <= 0:
+    if max_start < 0:
         print(f"   ERROR: Signal too short for 10s windows")
         return {
             'best_segment_indices': [0, len(ecg_cleaned)],

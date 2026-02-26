@@ -183,6 +183,21 @@ header h1 {
   font-size: 1rem;
 }
 
+.quality-toggle-row {
+  margin-top: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.quality-toggle-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
 .form-group {
   margin-bottom: 1rem;
 }

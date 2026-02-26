@@ -8,6 +8,9 @@ const errorMessage = document.getElementById("errorMessage");
 const resultsSection = document.getElementById("resultsSection");
 const timeframeSection = document.getElementById("timeframeSection");
 const channelSelect = document.getElementById("channelSelect");
+const qualityHighlightToggle = document.getElementById(
+  "qualityHighlightToggle"
+);
 // const previewCard = document.getElementById("previewCard"); // Removed
 const startTimeSlider = document.getElementById("startTimeSlider");
 const endTimeSlider = document.getElementById("endTimeSlider");
@@ -21,6 +24,16 @@ let previewData = null;
 let currentFile = null;
 let maxDuration = 0;
 let samplingRate = 500;
+let showQualityHighlights = true;
+let currentQualityData = null;
+let currentCleanedSignalData = null;
+
+if (qualityHighlightToggle) {
+  qualityHighlightToggle.addEventListener("change", (e) => {
+    showQualityHighlights = e.target.checked;
+    applyQualityOverlayVisibility();
+  });
+}
 
 // Channel selection handler
 channelSelect.addEventListener("change", (e) => {
@@ -649,6 +662,8 @@ function downsample(xData, yData, maxPoints) {
 // Display quality assessment function
 function displayQualityAssessment(qualityData, cleanedSignalData) {
   const qualityCard = document.getElementById("qualityCard");
+  currentQualityData = qualityData;
+  currentCleanedSignalData = cleanedSignalData;
 
   // Show quality card
   qualityCard.style.display = "block";
@@ -689,6 +704,86 @@ function createQualityChart(qualityData, cleanedSignalData) {
     cleanedSignalData.values,
     maxPoints
   );
+
+  const annotations = buildQualityAnnotations(qualityData);
+
+  // Keep UI toggle synced with current state
+  if (qualityHighlightToggle) {
+    qualityHighlightToggle.checked = showQualityHighlights;
+  }
+
+  // Create quality chart
+  const qualityCtx = document.getElementById("qualityChart");
+  charts.quality = new Chart(qualityCtx, {
+    type: "line",
+    data: {
+      labels: signalData.x,
+      datasets: [
+        {
+          label: "Cleaned ECG Signal (Quality Assessment)",
+          data: signalData.y,
+          borderColor: "#6366f1",
+          borderWidth: 1,
+          pointRadius: 0,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        intersect: false,
+        mode: "index",
+      },
+      hover: {
+        intersect: false,
+        animationDuration: 0,
+      },
+      animation: false,
+      plugins: {
+        legend: {
+          display: true,
+          onClick: function () {
+            // Disable legend click behavior to prevent dataset toggling
+            return false;
+          },
+          onHover: function () {
+            // Disable legend hover effects
+            return false;
+          },
+          labels: {
+            usePointStyle: false,
+            boxWidth: 12,
+            color: "#374151",
+          },
+        },
+        annotation: {
+          annotations: annotations,
+        },
+      },
+      scales: {
+        x: {
+          title: {
+            display: true,
+            text: "Time (seconds)",
+          },
+          type: "linear",
+        },
+        y: {
+          title: {
+            display: true,
+            text: "Amplitude (mV)",
+          },
+        },
+      },
+    },
+  });
+}
+
+function buildQualityAnnotations(qualityData) {
+  if (!showQualityHighlights) {
+    return {};
+  }
 
   // Create annotations for quality segments
   const annotations = {};
@@ -807,72 +902,18 @@ function createQualityChart(qualityData, cleanedSignalData) {
     };
   });
 
-  // Create quality chart
-  const qualityCtx = document.getElementById("qualityChart");
-  charts.quality = new Chart(qualityCtx, {
-    type: "line",
-    data: {
-      labels: signalData.x,
-      datasets: [
-        {
-          label: "Cleaned ECG Signal (Quality Assessment)",
-          data: signalData.y,
-          borderColor: "#6366f1",
-          borderWidth: 1,
-          pointRadius: 0,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: {
-        intersect: false,
-        mode: "index",
-      },
-      hover: {
-        intersect: false,
-        animationDuration: 0,
-      },
-      animation: false,
-      plugins: {
-        legend: {
-          display: true,
-          onClick: function () {
-            // Disable legend click behavior to prevent dataset toggling
-            return false;
-          },
-          onHover: function () {
-            // Disable legend hover effects
-            return false;
-          },
-          labels: {
-            usePointStyle: false,
-            boxWidth: 12,
-            color: "#374151",
-          },
-        },
-        annotation: {
-          annotations: annotations,
-        },
-      },
-      scales: {
-        x: {
-          title: {
-            display: true,
-            text: "Time (seconds)",
-          },
-          type: "linear",
-        },
-        y: {
-          title: {
-            display: true,
-            text: "Amplitude (mV)",
-          },
-        },
-      },
-    },
-  });
+  return annotations;
+}
+
+function applyQualityOverlayVisibility() {
+  if (!currentQualityData || !currentCleanedSignalData) return;
+
+  if (charts.quality) {
+    charts.quality.destroy();
+    charts.quality = null;
+  }
+
+  createQualityChart(currentQualityData, currentCleanedSignalData);
 }
 
 // Populate quality summary
